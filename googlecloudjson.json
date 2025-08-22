@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "expanded-flame-469612-c2",
+  "private_key_id": "c3c33c3c6341a79e17be7276b40dd24809ba1f6c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQCTfZ/F6wB10XW3\nkdzZCobBosLiXwt8fE1yQvCnVQYZ/BgC5dWqFSKRaJ85R9qA8+2glqF2+1z/Z2SA\nrtwNEZBsJ17MQmX4ptbJ0KbVeCy7FNObwAFPDcFaJQZllHnKt6rLCuqDiCNLL0yq\n+yDUyzZXSt6aNQjW5fwwPFMFx6Rf7WuskiKuAUXnATDbKigRGyFenUEc1mBkhJ+W\nVaHXxfzsjQM2/hKAJ5ivDkwc9EsyChMykLL4PxXWfdWp1pZihF2gJaG9xygruzHU\nnPBeTEysDB0woqEm8g2ugqg0hcfwlYIntvsxeywsG+U29MJkEnadWWed/hR0Q8QH\njgMsl+AfAgMBAAECggEAJTiPyKfMvu70UTZLUK66YUWM/wnTYUARX2OLTf9EAey/\ntoOAD2M0DRQlEpSSjPaCIoPBDcDTsFTMZTk7qUSkeNbaspuTFlQsYlP4tmiUiUXx\nPR4Qdn3XLMOpQJtevQzq2kDP/A+wMHooVAH6QBlkhlULpkj6CRmTMi0XGp9OWTK0\nSWRAFuvzRHjdrl451PaffUVuw3qIBdElYRP9ZAOsa9PjuScRiAIwbI/TOXhvXlbR\nFcbmqlTXFkhaLIj6z5jJOP5eDANtwDSayLiJ/iBKx1XaiCq8n7MoYxDj2NOTaZSP\nN7qB+3toMuarBLluKDAWDs/nLJilYf/mTjKppkC96QKBgQDLrucIvyYjQefqZvAZ\nPmjazC9XYLqHr1g+ZcPDm7lJQ7nsD4bVt9VhzYbTRGapO9l98cLzz231xjEW/ZwU\nEKfxQIovAJCAg40Y8O2DZpqTCMEuTo2m2GA7P8sXr3je1hK5LF9A4CMSw/m5B35l\neuHGC0P+OlFoTI8dIkH36gGFDQKBgQC5X89Ea0Wn6KkdeocrRQuEoI//DNclFstH\nkbkZWN6ldTbXXciFMKaoowXbnC04G3WUdFzunPXRhgXges2YtVUgw5rn4/bnADts\np4PboQZ8vEfiy0chrXjajiZUm0ldu20uHUKuciMe/WE/voYXS1IOxlcCkq+JTYfq\nBlQsLy/G2wKBgExmEFahjCaRY/HyJoDxfdcD24YEzDJ0vL664REP6hHnC2fV8xda\n2vjSZI3+DBvSTSQGeL+GwJH9gxBClDaagMPnF23F4m2x6ky+ofg1likskXlTEaLR\nalcO+JirwsSiu2clk5z79Wvmgla6ztg1nVXxh9FmAn8CqHOfE+tvpJ5JAoGAEGZf\niegLo4072PXMG5HiMPubga77IbbgiRZlT87C89Ro46jSYqYpOGYj0IgCoCIdxuJ8\njkeon77Bqlhy8/2m6F0lyTorz8f/ed9gFQAr+MEXgwME6f/U31EQJxAN75LzV88S\n5SgH32f/QIp0hn8NZW06qWmcygLn8VZaAAa0rV0CgYAacgmCQZT8eeq88qWDjM58\nq47n57omcbdRprX1HOnCQHdedNyksXdfeth+Mr91DriwM8csbKi+bfGxmj0xbeql\n5WQ9oXN2py+T6pjZ0gBICzytzfATFkAYrblVmMHZR9tslsYpdKRfNoOlnNayXVxA\nv9V98BcD7xB66urtSlef6g==\n-----END PRIVATE KEY-----\n",
+  "client_email": "craft-ai-service@expanded-flame-469612-c2.iam.gserviceaccount.com",
+  "client_id": "106607679489128421766",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/craft-ai-service%40expanded-flame-469612-c2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
