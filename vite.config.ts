@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     outDir: "dist/spa",
+    rollupOptions: {
+      input: {
+        main: "./index.html"
+      }
+    }
   },
   plugins: [react(), expressPlugin()],
   resolve: {

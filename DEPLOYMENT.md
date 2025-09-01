@@ -110,7 +110,16 @@ Vercel is the best choice because:
 
 1. **Push your code to GitHub**
 2. **Connect to Vercel**: Go to [vercel.com](https://vercel.com) and import your repository
-3. **Set environment variables** in Vercel dashboard
+3. **Set environment variables** in Vercel dashboard:
+   - `GOOGLE_CLOUD_PROJECT_ID` = your-project-id
+   - `GOOGLE_CLOUD_LOCATION` = us-central1
 4. **Deploy automatically** - Vercel will build and deploy your app
 
 Your app will be live at: `https://your-app-name.vercel.app`
+
+## **🔧 Fixed Issues**
+
+✅ **Fixed Vercel build error** - Updated configuration to use root package.json
+✅ **Fixed index.html path** - Vercel now correctly finds the HTML file
+✅ **Added vercel-build script** - Proper build command for Vercel
+✅ **Updated routes** - Correct routing for SPA and API endpoints
