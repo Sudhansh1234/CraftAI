@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Sparkles, MessageCircle, Home, BookOpen, TrendingUp, DollarSign, Mic, LogOut, User } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Menu, X, Sparkles, MessageCircle, Home, BookOpen, DollarSign, LogOut, User, BarChart3 } from "lucide-react";
+import { useAuth } from "@/contexts/MockAuthContext";
+import { Footer } from "./Footer";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,11 +16,11 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: "Home", href: "/", icon: Home },
+    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
     { name: "Chat Assistant", href: "/chat", icon: MessageCircle },
-    { name: "Marketing Tools", href: "/marketing", icon: TrendingUp },
+    { name: "Image Studio", href: "/images", icon: Sparkles },
     { name: "Storytelling", href: "/storytelling", icon: BookOpen },
     { name: "Pricing AI", href: "/pricing", icon: DollarSign },
-    { name: "Voice Commerce", href: "/voice", icon: Mic },
   ];
 
   return (
@@ -162,6 +163,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main>{children}</main>
+      
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }

@@ -17,7 +17,10 @@ import {
   User,
   Bot,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Facebook,
+  Instagram,
+  Calendar
 } from "lucide-react";
 import { voiceService, type VoiceRecognitionResult } from "@/lib/voice-service";
 import { toast } from "sonner";
@@ -31,17 +34,34 @@ interface Message {
   needsMoreInfo?: boolean;
   followUpQuestions?: string[];
   image?: string; // Base64 image data for display
+  generatedImages?: GeneratedImage[];
+}
+
+interface GeneratedImage {
+  id: string;
+  description: string;
+  prompt: string;
+  style: string;
+  platform: 'instagram' | 'facebook' | 'general';
+  tags: string[];
+  suggestedCaption: string;
+  imageUrl?: string; // Base64 image data for display
+  isGenerated?: boolean; // Whether this is a real AI-generated image
+  isGenerating?: boolean; // Whether this image is currently being generated
 }
 
 const quickActions = [
-  { icon: TrendingUp, label: "Create social media post", query: "Help me create an Instagram post for my handwoven scarf" },
-  { icon: BookOpen, label: "Write product story", query: "Help me write a compelling story about my pottery craft" },
-  { icon: DollarSign, label: "Price my product", query: "What should I price my handmade jewelry for Diwali season?" },
-  { icon: Camera, label: "Enhance product photo", query: "Give me tips to take better photos of my crafts" },
+  { icon: Instagram, label: "Instagram Marketing", query: "Create an Instagram post for my handwoven scarf with hashtags and best posting time for Indian audience" },
+  { icon: Facebook, label: "Facebook Content", query: "Help me create a Facebook post to promote my traditional pottery business with engagement strategies" },
+  { icon: TrendingUp, label: "Marketing Strategy", query: "Give me a complete digital marketing strategy for my handmade jewelry business including social media platforms" },
+  { icon: BookOpen, label: "Content Calendar", query: "Create a weekly social media content calendar for my craft business with post ideas and hashtags" },
+  { icon: Calendar, label: "Festival Marketing", query: "What festivals and seasonal trends should I focus on for marketing my traditional crafts this month?" },
+  { icon: Camera, label: "Generate Images", query: "Generate Instagram image ideas and prompts for my traditional pottery with different styles and captions" },
 ];
 
 export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -106,6 +126,7 @@ export default function Chat() {
         timestamp: new Date(),
         needsMoreInfo: aiResponse.needsMoreInfo,
         followUpQuestions: aiResponse.followUpQuestions,
+        generatedImages: aiResponse.generatedImages,
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -224,6 +245,11 @@ export default function Chat() {
     }
   };
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isTyping]);
+
   // Set up voice service callbacks
   useEffect(() => {
     // Set transcription callback
@@ -270,7 +296,7 @@ export default function Chat() {
     };
   }, [selectedLanguage]);
 
-  const getAIResponse = async (userMessage: string): Promise<{content: string, needsMoreInfo?: boolean, followUpQuestions?: string[]}> => {
+  const getAIResponse = async (userMessage: string): Promise<{content: string, needsMoreInfo?: boolean, followUpQuestions?: string[], generatedImages?: any[]}> => {
     try {
       // Create artisan context (you can make this more dynamic based on user profile)
       const context = {
@@ -304,10 +330,12 @@ export default function Chat() {
       }
 
       const aiResponse = await response.json();
+      console.log('🎨 Frontend received AI response:', aiResponse);
       return {
         content: aiResponse.content || "I'm sorry, I couldn't generate a response right now. Please try again.",
         needsMoreInfo: aiResponse.needsMoreInfo,
-        followUpQuestions: aiResponse.followUpQuestions
+        followUpQuestions: aiResponse.followUpQuestions,
+        generatedImages: aiResponse.generatedImages
       };
 
     } catch (error) {
@@ -460,45 +488,47 @@ export default function Chat() {
 
         {/* Chat Interface */}
         <Card className="h-[600px] flex flex-col">
-          <CardContent className="flex-1 p-0">
-            <ScrollArea className="h-full p-6">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex items-start space-x-3 ${
-                      message.sender === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    {message.sender === 'ai' && (
-                      <div className="h-8 w-8 rounded-full gemini-gradient flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
-                    )}
-                    
+          <CardContent className="flex-1 p-0 flex flex-col">
+            {/* Messages Container - Fixed height with scroll */}
+            <div className="flex-1 overflow-hidden max-h-[500px]">
+              <ScrollArea className="h-full w-full">
+                <div className="p-6 space-y-4">
+                  {messages.map((message) => (
                     <div
-                      className={`max-w-[80%] rounded-lg p-4 ${
-                        message.sender === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary'
+                      key={message.id}
+                      className={`flex items-start space-x-3 ${
+                        message.sender === 'user' ? 'justify-end' : 'justify-start'
                       }`}
                     >
-                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {message.content}
-                      </div>
-                      
-                      {/* Display image if message has one */}
-                      {message.image && (
-                        <div className="mt-3">
-                          <img
-                            src={message.image}
-                            alt="Craft image"
-                            className="max-w-full h-auto rounded-lg border border-gray-200 max-h-48 object-cover"
-                          />
+                      {message.sender === 'ai' && (
+                        <div className="h-8 w-8 rounded-full gemini-gradient flex items-center justify-center flex-shrink-0">
+                          <Bot className="h-4 w-4 text-white" />
                         </div>
                       )}
                       
-                                              {/* Follow-up Questions */}
+                      <div
+                        className={`max-w-[80%] rounded-lg p-4 ${
+                          message.sender === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary'
+                        }`}
+                      >
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {message.content}
+                        </div>
+                        
+                        {/* Display image if message has one */}
+                        {message.image && (
+                          <div className="mt-3">
+                            <img
+                              src={message.image}
+                              alt="Craft image"
+                              className="max-w-full h-auto rounded-lg border border-gray-200 max-h-48 object-cover"
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Follow-up Questions */}
                         {message.needsMoreInfo && message.followUpQuestions && message.followUpQuestions.length > 0 && (
                           <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="text-sm font-medium text-blue-800 mb-2">
@@ -534,36 +564,185 @@ export default function Chat() {
                             </div>
                           </div>
                         )}
-                      
-                      <div className="text-xs opacity-70 mt-2">
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </div>
 
-                    {message.sender === 'user' && (
-                      <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                        <User className="h-4 w-4" />
+                        {/* Generated Images */}
+                        {message.generatedImages && message.generatedImages.length > 0 && (
+                          <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                            {(() => {
+                              console.log('🎨 Frontend Debug - generatedImages:', message.generatedImages);
+                              message.generatedImages.forEach((img, index) => {
+                                console.log(`🎨 Image ${index + 1}:`, {
+                                  id: img.id,
+                                  style: img.style,
+                                  imageUrl: img.imageUrl ? `${img.imageUrl.substring(0, 50)}...` : 'NO URL',
+                                  isGenerated: img.isGenerated,
+                                  hasImageUrl: !!img.imageUrl
+                                });
+                              });
+                              return null;
+                            })()}
+                            <div className="text-sm font-medium text-purple-800 mb-3 flex items-center gap-2">
+                              🎨 {message.generatedImages.some(img => img.isGenerated) ? 'AI-Generated Images' : 'AI Image Ideas for Your Craft'}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {message.generatedImages.map((img) => (
+                                <div key={img.id} className="bg-white p-3 rounded-lg border border-purple-200">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-medium text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                                      {img.style}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-purple-600">
+                                        {img.platform}
+                                      </span>
+                                      {img.isGenerated && (
+                                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                                          ✨ AI Generated
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Show actual generated image if available */}
+                                  {(() => {
+                                    console.log(`🎨 Image Display Debug for ${img.style}:`, {
+                                      hasImageUrl: !!img.imageUrl,
+                                      isGenerated: img.isGenerated,
+                                      condition: !!(img.imageUrl && img.isGenerated),
+                                      imageUrlLength: img.imageUrl ? img.imageUrl.length : 0
+                                    });
+                                    return null;
+                                  })()}
+                                  {img.imageUrl && img.isGenerated ? (
+                                    <div className="mb-3">
+                                      <img 
+                                        src={img.imageUrl} 
+                                        alt={img.description}
+                                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                                      />
+                                    </div>
+                                  ) : img.isGenerating ? (
+                                    <div className="mb-3 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg">
+                                      <div className="flex items-center gap-3 text-blue-700">
+                                        <div className="relative">
+                                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                                          <div className="absolute inset-0 rounded-full h-5 w-5 border-2 border-blue-300 border-t-transparent animate-ping"></div>
+                                        </div>
+                                        <div>
+                                          <div className="text-sm font-medium">🎨 Generating {img.style}</div>
+                                          <div className="text-xs text-blue-600">Using Google Imagen 4.0 AI...</div>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 bg-blue-100 rounded-full h-2">
+                                        <div className="bg-blue-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                                      </div>
+                                      <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+                                        <span className="animate-pulse">⏳</span>
+                                        Creating high-quality image... (10-30 seconds)
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="text-sm text-gray-700 mb-2">
+                                      {img.description}
+                                    </div>
+                                  )}
+                                  
+                                  <div className="text-xs text-gray-600 mb-2">
+                                    <strong>Prompt:</strong> {img.prompt}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mb-2">
+                                    <strong>Caption:</strong> {img.suggestedCaption}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {img.tags.map((tag, index) => (
+                                      <span key={index} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* Show different tips based on whether images were generated */}
+                            {message.generatedImages.some(img => img.isGenerating) ? (
+                              <div className="mt-3 pt-3 border-t border-purple-200">
+                                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-3 rounded-lg">
+                                  <div className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                                    <div className="animate-spin rounded-full h-3 w-3 border border-blue-600 border-t-transparent"></div>
+                                    AI Image Generation in Progress
+                                  </div>
+                                  <div className="text-xs text-blue-700 space-y-1">
+                                    <div>• Using Google's latest Imagen 4.0 model</div>
+                                    <div>• Creating professional-quality images</div>
+                                    <div>• Each image takes 10-30 seconds</div>
+                                    <div>• Images will appear as they're completed</div>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : message.generatedImages.some(img => img.isGenerated) ? (
+                              <div className="mt-3 pt-3 border-t border-purple-200">
+                                <div className="text-xs text-green-600 mb-2">
+                                  ✨ These images were generated by Google's Imagen AI! You can download and use them for your marketing.
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-3 pt-3 border-t border-purple-200">
+                                <div className="text-xs text-purple-600 mb-2">
+                                  💡 Use these prompts with AI image generation tools:
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="bg-blue-50 p-2 rounded border border-blue-200">
+                                    <strong>Free Tools:</strong><br/>
+                                    • Canva AI (Free)<br/>
+                                    • Leonardo.ai (Free tier)<br/>
+                                    • Bing Image Creator
+                                  </div>
+                                  <div className="bg-green-50 p-2 rounded border border-green-200">
+                                    <strong>Paid Tools:</strong><br/>
+                                    • DALL-E 3<br/>
+                                    • Midjourney<br/>
+                                    • Stable Diffusion
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="text-xs opacity-70 mt-2">
+                          {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
 
-                {isTyping && (
-                  <div className="flex items-start space-x-3">
-                    <div className="h-8 w-8 rounded-full gemini-gradient flex items-center justify-center flex-shrink-0">
-                      <Bot className="h-4 w-4 text-white" />
+                      {message.sender === 'user' && (
+                        <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4" />
+                        </div>
+                      )}
                     </div>
-                    <div className="bg-secondary rounded-lg p-4">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  ))}
+
+                  {isTyping && (
+                    <div className="flex items-start space-x-3">
+                      <div className="h-8 w-8 rounded-full gemini-gradient flex items-center justify-center flex-shrink-0">
+                        <Bot className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="bg-secondary rounded-lg p-4">
+                        <div className="flex space-x-1">
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
+                  )}
+                  
+                  {/* Scroll anchor for auto-scroll */}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
+            </div>
 
             {/* Image Preview */}
             {imagePreview && (
