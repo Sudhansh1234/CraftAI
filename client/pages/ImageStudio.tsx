@@ -4,10 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Image as ImageIcon, Info } from "lucide-react";
-import { useState, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sparkles, Image as ImageIcon, Info, History, Upload, Download } from "lucide-react";
+import { unifiedHistoryService, type ImageHistoryItem } from "@/lib/unifiedHistory";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState, useRef, useEffect } from "react";
+import { toast } from "sonner";
 
 export default function ImageStudio() {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'create' | 'enhance'>('create');
   const [prompt, setPrompt] = useState("");
   const [genLoading, setGenLoading] = useState(false);
@@ -20,6 +25,31 @@ export default function ImageStudio() {
   const [lastApplied, setLastApplied] = useState({ brightness: 1, saturation: 1, hue: 0, blur: 0, sharpen: 0 });
   const [bgSwapLoading, setBgSwapLoading] = useState(false);
   const [bgVariants, setBgVariants] = useState<{ standard?: string; premium?: string; festive?: string }>({});
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState<ImageHistoryItem[]>([]);
+
+  // Load image history when component mounts
+  useEffect(() => {
+    if (currentUser) {
+      loadImageHistory();
+    }
+  }, [currentUser]);
+
+  const loadImageHistory = async () => {
+    if (!currentUser) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      const history = await unifiedHistoryService.getFeatureHistory(currentUser.uid, 'image-studio', 20);
+      setHistoryItems(history);
+    } catch (error) {
+      console.error('Failed to load image history:', error);
+      toast.error('Failed to load image history');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -32,7 +62,29 @@ export default function ImageStudio() {
         body: JSON.stringify({ prompt })
       });
       const data = await res.json();
-      if (res.ok && data.imageUrl) setGenImageUrl(data.imageUrl);
+      if (res.ok && data.imageUrl) {
+        setGenImageUrl(data.imageUrl);
+        
+        // Save to history
+        if (currentUser) {
+          try {
+            await unifiedHistoryService.saveHistoryItem({
+              userId: currentUser.uid,
+              feature: 'image-studio',
+              type: 'image',
+              prompt: prompt,
+              imageUrl: data.imageUrl,
+              operation: 'generate',
+              metadata: {
+                sessionId: Date.now().toString(),
+              }
+            });
+            toast.success("Image saved to history");
+          } catch (error) {
+            console.error('Failed to save image to history:', error);
+          }
+        }
+      }
     } finally {
       setGenLoading(false);
     }
@@ -105,11 +157,101 @@ export default function ImageStudio() {
                 <p className="text-sm text-muted-foreground">Generate product visuals and marketing creatives</p>
               </div>
             </div>
-            <Badge variant="secondary" className="px-3 py-1 flex items-center">
-              <Sparkles className="h-3 w-3 mr-1" />
-              AI-Powered
-            </Badge>
+            <div className="flex items-center gap-3">
+              {currentUser && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-xs"
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  {showHistory ? 'Hide History' : 'Show History'}
+                </Button>
+              )}
+              <Badge variant="secondary" className="px-3 py-1 flex items-center">
+                <Sparkles className="h-3 w-3 mr-1" />
+                AI-Powered
+              </Badge>
+            </div>
           </div>
+
+          {/* History Panel */}
+          {showHistory && currentUser && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Image History
+                  {isLoadingHistory && (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {historyItems.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No image history yet</p>
+                    <p className="text-sm">Generate your first image to see it here</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-64">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {historyItems.map((item) => (
+                        <div key={item.id} className="border rounded-lg p-3 hover:bg-secondary/50 transition-colors">
+                          <div className="space-y-2">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.prompt}
+                              className="w-full h-32 object-cover rounded"
+                            />
+                            <p className="text-sm font-medium line-clamp-2">
+                              {item.prompt}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <Badge variant="outline" className="text-xs">
+                                {item.operation}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {item.timestamp.toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setPrompt(item.prompt);
+                                  setActiveTab('create');
+                                }}
+                                className="text-xs flex-1"
+                              >
+                                Reuse Prompt
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = item.imageUrl;
+                                  link.download = `image-${item.id}.png`;
+                                  link.click();
+                                }}
+                                className="text-xs"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <Card className="lg:col-span-2">

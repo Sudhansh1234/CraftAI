@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { 
+  User, 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile
+} from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 
 interface AuthContextType {
   currentUser: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -45,6 +55,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const signUpWithEmail = async (email: string, password: string, displayName?: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update the user's display name if provided
+      if (displayName && userCredential.user) {
+        await updateProfile(userCredential.user, {
+          displayName: displayName
+        });
+      }
+    } catch (error) {
+      console.error('Error signing up with email:', error);
+      throw error;
+    }
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Error signing in with email:', error);
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -58,6 +93,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     currentUser,
     loading,
     signInWithGoogle,
+    signUpWithEmail,
+    signInWithEmail,
     logout,
   };
 

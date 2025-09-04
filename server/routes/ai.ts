@@ -195,6 +195,99 @@ export const handleAIChat: RequestHandler = async (req, res) => {
       conversationHistory = [],
       requestType = 'general' // 'marketing', 'pricing', 'images', 'general'
     } = req.body;
+    
+    // Check if this is a location-based query
+    const locationKeywords = ['near me', 'nearby', 'local', 'find', 'suppliers', 'wholesalers', 'markets', 'stores', 'craft fairs', 'selling', 'my area'];
+    const isLocationQuery = locationKeywords.some(keyword => 
+      message.toLowerCase().includes(keyword)
+    );
+    
+    // Also check if user mentioned a city name in their message
+    const cityKeywords = ['mumbai', 'delhi', 'bangalore', 'chennai', 'hyderabad', 'pune', 'kolkata', 'ahmedabad', 'jaipur', 'surat', 'dombivli', 'thane', 'navi mumbai'];
+    const mentionedCity = cityKeywords.find(city => 
+      message.toLowerCase().includes(city.toLowerCase())
+    );
+    
+    console.log('Location query check:', { isLocationQuery, hasCoordinates: !!context?.coordinates, mentionedCity, message });
+    
+    // If it's a location query and user has location data OR mentioned a city, route to location search
+    if (isLocationQuery && (context?.coordinates || mentionedCity)) {
+      try {
+        console.log('Routing to location search with context:', context);
+        // Determine location data - use coordinates if available, otherwise use mentioned city
+        let locationData;
+        if (context?.coordinates) {
+          locationData = {
+            lat: parseFloat(context.coordinates.split(',')[0]),
+            lng: parseFloat(context.coordinates.split(',')[1]),
+            city: context.location
+          };
+        } else if (mentionedCity) {
+          // Use default coordinates for major cities when user mentions city name
+          const cityCoordinates: { [key: string]: { lat: number, lng: number } } = {
+            'mumbai': { lat: 19.0760, lng: 72.8777 },
+            'delhi': { lat: 28.7041, lng: 77.1025 },
+            'bangalore': { lat: 12.9716, lng: 77.5946 },
+            'chennai': { lat: 13.0827, lng: 80.2707 },
+            'hyderabad': { lat: 17.3850, lng: 78.4867 },
+            'pune': { lat: 18.5204, lng: 73.8567 },
+            'kolkata': { lat: 22.5726, lng: 88.3639 },
+            'ahmedabad': { lat: 23.0225, lng: 72.5714 },
+            'jaipur': { lat: 26.9124, lng: 75.7873 },
+            'surat': { lat: 21.1702, lng: 72.8311 },
+            'dombivli': { lat: 19.2167, lng: 73.0833 },
+            'thane': { lat: 19.2183, lng: 72.9781 },
+            'navi mumbai': { lat: 19.0330, lng: 73.0297 }
+          };
+          
+          const coords = cityCoordinates[mentionedCity.toLowerCase()];
+          if (coords) {
+            locationData = {
+              lat: coords.lat,
+              lng: coords.lng,
+              city: mentionedCity
+            };
+          }
+        }
+        
+        if (locationData) {
+          const locationResponse = await fetch('http://localhost:8080/api/location/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: message,
+              location: locationData
+            })
+          });
+        
+        if (locationResponse.ok) {
+          const locationSearchData = await locationResponse.json();
+          console.log('Location search successful:', locationSearchData);
+          // Clean markdown from location search response
+          if (locationSearchData.content) {
+            locationSearchData.content = cleanMarkdown(locationSearchData.content);
+          }
+          return res.json(locationSearchData);
+        } else {
+          console.error('Location search failed:', locationResponse.status);
+        }
+        }
+      } catch (error) {
+        console.error('Location search error:', error);
+        // Fall through to regular AI response
+      }
+    } else if (isLocationQuery && !context?.coordinates && !mentionedCity) {
+      // If it's a location query but no location data or mentioned city, ask for location
+      return res.json({
+        content: "I'd love to help you find local markets and craft fairs! To give you the most accurate recommendations, I need to know your location. Please click the 'Enable Location' button in the top right corner, or tell me your city name.",
+        needsMoreInfo: true,
+        followUpQuestions: [
+          "What city are you located in?",
+          "Would you like to enable location access for better recommendations?",
+          "Are you looking for markets in a specific area?"
+        ]
+      });
+    }
 
     if (!message) {
       return res.status(400).json({ 
@@ -316,11 +409,24 @@ function extractTextFromResponse(response: any): string {
   return '';
 }
 
+// Function to clean markdown formatting from text
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markdown **text**
+    .replace(/\*(.*?)\*/g, '$1') // Remove italic markdown *text*
+    .replace(/`(.*?)`/g, '$1') // Remove code markdown `text`
+    .replace(/#{1,6}\s/g, '') // Remove heading markdown # ## ### etc
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove link markdown [text](url)
+    .replace(/^\s*[-*+]\s/gm, '• ') // Convert markdown lists to bullet points
+    .replace(/^\s*\d+\.\s/gm, (match) => match.replace('.', '.')) // Keep numbered lists
+    .trim();
+}
+
 async function processAIResponse(content: string, message: string, context: ArtisanContext | undefined, language: string, requestType: string): Promise<AIResponse> {
   console.log(`🔍 processAIResponse called with requestType: "${requestType}", message: "${message.substring(0, 100)}..."`);
   
   const aiResponse: AIResponse = {
-    content: content.trim(),
+    content: cleanMarkdown(content.trim()),
     suggestions: extractActionableSuggestions(content),
     actions: generateContextualActions(message, context, requestType),
     language,
@@ -1095,7 +1201,7 @@ function enhanceMarketingContent(content: string, language: string): string {
 function generateFallbackResponse(language: string, message: string): AIResponse {
   const fallbacks = {
     'en': {
-      content: "I'm experiencing technical difficulties. I can still help with digital marketing, pricing strategies, or social media tips for your craft business. Try asking about Instagram marketing or pricing advice.",
+      content: cleanMarkdown("I'm experiencing technical difficulties. I can still help with digital marketing, pricing strategies, or social media tips for your craft business. Try asking about Instagram marketing or pricing advice."),
       suggestions: [
         "Ask about Instagram marketing strategies",
         "Need help with pricing your products?",
@@ -1104,7 +1210,7 @@ function generateFallbackResponse(language: string, message: string): AIResponse
       ]
     },
     'hi': {
-      content: "मुझे तकनीकी समस्या हो रही है। मैं अभी भी डिजिटल मार्केटिंग, मूल्य निर्धारण रणनीतियों या आपके शिल्प व्यवसाय के लिए सोशल मीडिया टिप्स के साथ मदद कर सकता हूं।",
+      content: cleanMarkdown("मुझे तकनीकी समस्या हो रही है। मैं अभी भी डिजिटल मार्केटिंग, मूल्य निर्धारण रणनीतियों या आपके शिल्प व्यवसाय के लिए सोशल मीडिया टिप्स के साथ मदद कर सकता हूं।"),
       suggestions: [
         "Instagram मार्केटिंग रणनीतियों के बारे में पूछें",
         "अपने उत्पादों की कीमत निर्धारण में मदद चाहिए?",

@@ -10,6 +10,7 @@ import { handleSpeechToText, handleSpeechHealth } from "./routes/speech";
 import { handleAIChat, handleAIHealth } from "./routes/ai";
 import { handleImageGenerate, handleImageEnhance, handleImageBgSwap } from "./routes/images";
 import { handleGenerateVideo, handleVideoStatus, handleVideoDownload, handleDebugVeo3 } from "./routes/videos";
+import { handleLocationSearch } from "./routes/location";
 
 export function createServer() {
   const app = express();
@@ -45,6 +46,9 @@ export function createServer() {
   app.get("/api/videos/:videoId/status", handleVideoStatus);
   app.get("/api/videos/:videoId/download", handleVideoDownload);
   app.get("/api/videos/debug/veo3", handleDebugVeo3);
+
+  // Location-based search endpoints
+  app.post("/api/location/search", handleLocationSearch);
 
   return app;
 }

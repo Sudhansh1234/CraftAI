@@ -25,3 +25,6 @@ dist-ssr
 
 .config/
 !.env
+
+# Google Cloud credentials
+googlecloudjson.json

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Sparkles, MessageCircle, Home, BookOpen, DollarSign, LogOut, User, BarChart3 } from "lucide-react";
-import { useAuth } from "@/contexts/MockAuthContext";
+import { useAuth } from "@/contexts/AuthContext";
+
 import { Footer } from "./Footer";
 
 interface LayoutProps {
@@ -12,6 +13,7 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
 
   const navigation = [
@@ -84,8 +86,11 @@ export default function Layout({ children }: LayoutProps) {
                   </Button>
                 </div>
               ) : (
-                <Button className="gemini-gradient text-white border-0 hover:opacity-90" asChild>
-                  <Link to="/auth">Get Started</Link>
+                <Button 
+                  className="gemini-gradient text-white border-0 hover:opacity-90"
+                  onClick={() => navigate('/auth')}
+                >
+                  Get Started
                 </Button>
               )}
             </div>
@@ -151,8 +156,14 @@ export default function Layout({ children }: LayoutProps) {
                     </Button>
                   </div>
                 ) : (
-                  <Button className="w-full gemini-gradient text-white border-0 hover:opacity-90" asChild>
-                    <Link to="/auth" onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
+                  <Button 
+                    className="w-full gemini-gradient text-white border-0 hover:opacity-90"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      navigate('/auth');
+                    }}
+                  >
+                    Get Started
                   </Button>
                 )}
               </div>

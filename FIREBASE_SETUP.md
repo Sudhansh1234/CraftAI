@@ -1,41 +1,52 @@
-# Firebase Setup for CraftAI Authentication
+# 🔥 Firebase Setup Guide
 
-## Prerequisites
-- A Google account
-- Node.js and pnpm installed
-
-## Step 1: Create a Firebase Project
+## **Step 1: Create Firebase Project**
 
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click "Create a project" or "Add project"
-3. Enter a project name (e.g., "craft-ai-auth")
-4. Choose whether to enable Google Analytics (optional)
+2. Click "Create a project"
+3. Enter project name: `craft-ai` (or your preferred name)
+4. Enable Google Analytics (optional)
 5. Click "Create project"
 
-## Step 2: Enable Authentication
+## **Step 2: Enable Authentication**
 
-1. In your Firebase project, click on "Authentication" in the left sidebar
-2. Click "Get started"
-3. Go to the "Sign-in method" tab
-4. Click on "Google" provider
-5. Enable it and configure:
-   - Project support email: Choose your email
-   - Project public-facing name: "CraftAI"
-6. Click "Save"
+1. In your Firebase project, go to **Authentication** > **Sign-in method**
+2. Click on **Google** provider
+3. Toggle **Enable**
+4. Add your project support email
+5. Click **Save**
 
-## Step 3: Get Firebase Configuration
+## **Step 3: Get Configuration**
 
-1. In your Firebase project, click on the gear icon (⚙️) next to "Project Overview"
-2. Select "Project settings"
-3. Scroll down to "Your apps" section
-4. Click on the web icon (</>)
-5. Register your app with a nickname (e.g., "CraftAI Web")
-6. Copy the Firebase configuration object
+1. Go to **Project Settings** (gear icon)
+2. Scroll down to **Your apps**
+3. Click **Web app** icon (`</>`)
+4. Register your app with nickname: `craft-ai-web`
+5. Copy the configuration object
 
-## Step 4: Update Firebase Config
+## **Step 4: Create Environment File**
 
-1. Open `client/lib/firebase.ts`
-2. Replace the placeholder values with your actual Firebase config:
+Create a `.env.local` file in your project root with:
+
+```bash
+# Firebase Configuration (VITE_ prefix required for frontend)
+VITE_FIREBASE_API_KEY=your-api-key-here
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abcdef123456
+
+# Google Cloud Configuration (for AI features)
+GOOGLE_CLOUD_PROJECT_ID=your-google-cloud-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+```
+
+**Important:** The `VITE_` prefix is required for environment variables to be accessible in the frontend code.
+
+## **Step 5: Update Firebase Config**
+
+Replace the placeholder values in `client/lib/firebase.ts` with your actual Firebase config:
 
 ```typescript
 const firebaseConfig = {
@@ -48,48 +59,49 @@ const firebaseConfig = {
 };
 ```
 
-## Step 5: Test the Authentication
+## **Step 6: Test Authentication**
 
-1. Run your development server: `pnpm dev`
-2. Navigate to `/auth` route
-3. Try signing in with Google
-4. Check the browser console for any errors
+1. Run your app: `npm run dev`
+2. Try to access a protected page (Dashboard, Image Studio, etc.)
+3. The login modal should appear
+4. Click "Continue with Google"
+5. Complete the Google sign-in flow
 
-## Troubleshooting
+## **🔧 Troubleshooting**
 
-### Common Issues:
+### **Common Issues:**
 
-1. **"Firebase: Error (auth/unauthorized-domain)":**
-   - Go to Firebase Console > Authentication > Settings > Authorized domains
-   - Add your domain (localhost for development)
+1. **"Firebase: Error (auth/configuration-not-found)"**
+   - Check your Firebase config values
+   - Ensure `.env.local` file exists and has correct values
 
-2. **"Firebase: Error (auth/popup-closed-by-user)":**
-   - This is normal if user closes the popup
-   - Make sure popup blockers are disabled
+2. **"Firebase: Error (auth/unauthorized-domain)"**
+   - Add your domain to Firebase Auth settings
+   - Go to Authentication > Settings > Authorized domains
+   - Add `localhost` for development
 
-3. **"Firebase: Error (auth/network-request-failed)":**
-   - Check your internet connection
-   - Verify Firebase project is active
+3. **"Firebase: Error (auth/popup-closed-by-user)"**
+   - User closed the popup before completing sign-in
+   - This is normal behavior
 
-### Security Rules:
+### **Development vs Production:**
 
-For production, consider setting up proper security rules in Firebase Console > Firestore Database > Rules.
+- **Development**: Use `localhost` in authorized domains
+- **Production**: Add your deployed domain (e.g., `your-app.vercel.app`)
 
-## Next Steps
+## **🚀 Ready to Deploy**
 
-After successful authentication setup:
+Once Firebase is configured:
+1. Your login modal will work with real Google authentication
+2. Users will be properly authenticated
+3. Protected routes will work correctly
+4. You can deploy to Vercel with the same environment variables
 
-1. Implement user profile management
-2. Add role-based access control
-3. Set up user data storage in Firestore
-4. Add email/password authentication as backup
-5. Implement password reset functionality
+## **📱 Features Enabled**
 
-## Support
-
-If you encounter issues:
-1. Check Firebase Console for error logs
-2. Verify your configuration values
-3. Check browser console for detailed error messages
-4. Ensure all dependencies are properly installed
-
+With Firebase authentication, you get:
+- ✅ **Real Google Sign-in**
+- ✅ **Persistent sessions**
+- ✅ **User profile data**
+- ✅ **Secure authentication**
+- ✅ **Production-ready auth system**

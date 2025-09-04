@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/MockAuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,8 +32,13 @@ export default function Auth() {
     name: ""
   });
 
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGoogle, signUpWithEmail, signInWithEmail } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get the page they were trying to access
+  const from = location.state?.from || '/dashboard';
+  const feature = location.state?.feature;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -46,10 +51,15 @@ export default function Auth() {
     try {
       setLoading(true);
       await signInWithGoogle();
-      toast.success("Successfully signed in with Google!");
-      navigate("/chat");
+      toast.success("Successfully signed in with Google!", {
+        description: "Welcome to CraftAI! You can now access all features.",
+      });
+      navigate(from);
     } catch (error) {
-      toast.error("Failed to sign in with Google. Please try again.");
+      console.error('Google sign-in error:', error);
+      toast.error("Failed to sign in with Google. Please try again.", {
+        description: "Make sure you have a stable internet connection.",
+      });
     } finally {
       setLoading(false);
     }
@@ -59,12 +69,43 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate form submission (replace with actual auth logic)
-    setTimeout(() => {
-      toast.success(isLogin ? "Successfully logged in!" : "Successfully signed up!");
-      navigate("/chat");
+    try {
+      if (isLogin) {
+        await signInWithEmail(formData.email, formData.password);
+        toast.success("Successfully logged in!", {
+          description: "Welcome back to CraftAI!",
+        });
+      } else {
+        await signUpWithEmail(formData.email, formData.password, formData.name);
+        toast.success("Successfully signed up!", {
+          description: "Welcome to CraftAI! You can now access all features.",
+        });
+      }
+      navigate(from);
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      
+      // Handle specific Firebase auth errors
+      let errorMessage = "Authentication failed. Please try again.";
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = "No account found with this email address.";
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = "Incorrect password. Please try again.";
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "An account with this email already exists.";
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = "Password should be at least 6 characters long.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "Please enter a valid email address.";
+      }
+      
+      toast.error(errorMessage, {
+        description: "Please check your credentials and try again.",
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const features = [
@@ -150,10 +191,15 @@ export default function Auth() {
                 {isLogin ? "Welcome Back" : "Create Account"}
               </CardTitle>
               <CardDescription>
-                {isLogin 
-                  ? "Sign in to continue your craft journey" 
-                  : "Join thousands of artisans growing with AI"
-                }
+                {feature ? (
+                  <>
+                    Sign in to access <span className="font-semibold text-primary">{feature}</span>
+                  </>
+                ) : (
+                  isLogin 
+                    ? "Sign in to continue your craft journey" 
+                    : "Join thousands of artisans growing with AI"
+                )}
               </CardDescription>
             </CardHeader>
 

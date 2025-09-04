@@ -13,16 +13,23 @@ import {
   TrendingUp, 
   BookOpen, 
   DollarSign,
-  MessageCircle,
   User,
   Bot,
   Upload,
   Image as ImageIcon,
   Facebook,
   Instagram,
-  Calendar
+  Calendar,
+  MapPin,
+  Search,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { voiceService, type VoiceRecognitionResult } from "@/lib/voice-service";
+import { chatHistoryService, type ChatMessage } from "@/lib/chatHistory";
+import { useAuth } from "@/contexts/AuthContext";
+
+
 import { toast } from "sonner";
 
 interface Message {
@@ -57,11 +64,16 @@ const quickActions = [
   { icon: BookOpen, label: "Content Calendar", query: "Create a weekly social media content calendar for my craft business with post ideas and hashtags" },
   { icon: Calendar, label: "Festival Marketing", query: "What festivals and seasonal trends should I focus on for marketing my traditional crafts this month?" },
   { icon: Camera, label: "Generate Images", query: "Generate Instagram image ideas and prompts for my traditional pottery with different styles and captions" },
+  { icon: MapPin, label: "Find Suppliers", query: "Find me textile wholesalers and suppliers near my location" },
+  { icon: Search, label: "Local Markets", query: "What are the best local markets and craft fairs in my area for selling handmade products?" },
 ];
 
 export default function Chat() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { currentUser } = useAuth();
+  
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -70,6 +82,19 @@ export default function Chat() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [loadedMessageCount, setLoadedMessageCount] = useState(10);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isLoadingAfterLanguageSelect, setIsLoadingAfterLanguageSelect] = useState(false);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number, city: string} | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationPermission, setLocationPermission] = useState<'granted' | 'denied' | 'prompt' | null>(null);
+  const [showCityInput, setShowCityInput] = useState(false);
+  const [manualCity, setManualCity] = useState('');
+  const [questionAnswers, setQuestionAnswers] = useState<{[key: string]: string}>({});
+  const [expandedQuestions, setExpandedQuestions] = useState<{[key: string]: boolean}>({});
 
   const languages = [
     { code: 'en', name: 'English', native: 'English', script: 'Latin' },
@@ -86,6 +111,420 @@ export default function Chat() {
     { code: 'or', name: 'Odia', native: 'ଓଡ଼ିଆ', script: 'Odia' },
     { code: 'as', name: 'Assamese', native: 'অসমীয়া', script: 'Bengali' },
   ];
+
+  // Load chat history when component mounts
+  useEffect(() => {
+    if (currentUser) {
+      // Clear existing messages first to ensure clean loading state
+      setMessages([]);
+      loadChatHistory();
+    }
+  }, [currentUser]);
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Auto-scroll to bottom when loading completes
+  useEffect(() => {
+    if (!isLoadingHistory && !isLoadingAfterLanguageSelect) {
+      // Small delay to ensure messages are rendered
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  }, [isLoadingHistory, isLoadingAfterLanguageSelect]);
+
+
+
+  const loadChatHistory = async () => {
+    if (!currentUser) return;
+    
+    setIsLoadingHistory(true);
+    
+    // Add a minimum loading time to ensure the animation is visible
+    const startTime = Date.now();
+    const minLoadingTime = 1500; // 1.5 seconds minimum
+    
+    try {
+      // Load chat history - start with 10 messages
+      const history = await chatHistoryService.getRecentMessages(currentUser.uid, loadedMessageCount);
+      
+      // Check if there are more messages available
+      setHasMoreMessages(history.length === loadedMessageCount);
+      
+      // Convert ChatMessage format to Message format
+      const convertedMessages: Message[] = [];
+      
+      history.forEach((chatMessage) => {
+        // Add user message
+        convertedMessages.push({
+          id: `${chatMessage.id}-user`,
+          content: chatMessage.userMessage || 'No message content',
+          sender: 'user',
+          timestamp: chatMessage.timestamp,
+          image: undefined,
+        });
+        
+        // Add AI response
+        convertedMessages.push({
+          id: `${chatMessage.id}-ai`,
+          content: chatMessage.aiResponse || 'No AI response',
+          sender: 'ai',
+          timestamp: chatMessage.timestamp,
+          generatedImages: chatMessage.generatedImages?.map(img => ({
+            id: `${chatMessage.id}-${img.prompt}`,
+            description: img.prompt,
+            prompt: img.prompt,
+            style: 'realistic',
+            platform: 'general' as const,
+            tags: [],
+            suggestedCaption: '',
+            imageUrl: img.imageUrl,
+            isGenerated: img.isGenerated,
+            isGenerating: false,
+          })),
+        });
+      });
+      
+      // Force immediate state update
+      setMessages([]); // Clear first
+      setTimeout(() => {
+        setMessages(convertedMessages); // Then set new messages
+        // Scroll to bottom after messages are set
+        setTimeout(() => {
+          scrollToBottom();
+        }, 50);
+      }, 10);
+      
+      // Ensure minimum loading time
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < minLoadingTime) {
+        const remainingTime = minLoadingTime - elapsedTime;
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+      }
+      
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
+      toast.error('Failed to load chat history');
+    } finally {
+      setIsLoadingHistory(false);
+      setIsLoadingAfterLanguageSelect(false);
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    if (!currentUser || isLoadingMore || !hasMoreMessages) return;
+    
+    setIsLoadingMore(true);
+    
+    try {
+      // Load more messages (next 10)
+      const newMessageCount = loadedMessageCount + 10;
+      const history = await chatHistoryService.getRecentMessages(currentUser.uid, newMessageCount);
+      
+      // Check if there are more messages available
+      setHasMoreMessages(history.length === newMessageCount);
+      setLoadedMessageCount(newMessageCount);
+      
+      // Convert ChatMessage format to Message format
+      const convertedMessages: Message[] = [];
+      
+      history.forEach((chatMessage) => {
+        // Add user message
+        convertedMessages.push({
+          id: `${chatMessage.id}-user`,
+          content: chatMessage.userMessage || 'No message content',
+          sender: 'user',
+          timestamp: chatMessage.timestamp,
+          image: undefined,
+        });
+        
+        // Add AI response
+        convertedMessages.push({
+          id: `${chatMessage.id}-ai`,
+          content: chatMessage.aiResponse || 'No AI response',
+          sender: 'ai',
+          timestamp: chatMessage.timestamp,
+          generatedImages: chatMessage.generatedImages?.map(img => ({
+            id: `${chatMessage.id}-${img.prompt}`,
+            description: img.prompt,
+            prompt: img.prompt,
+            style: 'realistic',
+            platform: 'general' as const,
+            tags: [],
+            suggestedCaption: '',
+            imageUrl: img.imageUrl,
+            isGenerated: img.isGenerated,
+            isGenerating: false,
+          })),
+        });
+      });
+      
+      setMessages(convertedMessages);
+      
+      // Don't scroll to bottom when loading more messages - keep current position
+      // The new messages will appear at the top, maintaining the user's current view
+      
+    } catch (error) {
+      console.error('Failed to load more messages:', error);
+      toast.error('Failed to load more messages');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+
+
+
+
+  const startNewChat = async () => {
+    // Save current conversation if there are messages
+    if (messages.length > 0 && currentUser) {
+      try {
+        // Get the last user message and AI response to save
+        const lastUserMessage = messages.filter(msg => msg.sender === 'user').pop();
+        const lastAIMessage = messages.filter(msg => msg.sender === 'ai').pop();
+        
+        if (lastUserMessage && lastAIMessage) {
+          const chatMessageData: any = {
+            userId: currentUser.uid,
+            userMessage: lastUserMessage.content,
+            aiResponse: lastAIMessage.content,
+            metadata: {
+              language: selectedLanguage || 'en',
+              feature: 'AI Chatbot',
+              sessionId: currentSessionId || Date.now().toString(),
+            },
+          };
+
+          // Add generated images if they exist
+          if (lastAIMessage.generatedImages && lastAIMessage.generatedImages.length > 0) {
+            chatMessageData.generatedImages = lastAIMessage.generatedImages.map(img => ({
+              prompt: img.prompt,
+              imageUrl: img.imageUrl || '',
+              isGenerated: img.isGenerated || false,
+            }));
+          }
+
+          await chatHistoryService.saveMessage(chatMessageData);
+        }
+    } catch (error) {
+        console.error('Failed to save current conversation:', error);
+        // Don't show error to user, just log it
+      }
+    }
+    
+    // Clear current chat and start fresh
+    setMessages([]);
+    setCurrentSessionId(null);
+    setLoadedMessageCount(10);
+    setHasMoreMessages(true);
+  };
+
+
+
+
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const getCurrentLocation = async (): Promise<{lat: number, lng: number, city: string} | null> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        console.log('Geolocation is not supported by this browser');
+        toast.error('Location not supported', {
+          description: 'Your browser does not support location services'
+        });
+        resolve(null);
+        return;
+      }
+
+      // Check if permission was previously denied
+      if (navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+          console.log('Geolocation permission status:', result.state);
+          if (result.state === 'denied') {
+            setLocationPermission('denied');
+            toast.error('Location permission denied', {
+              description: 'Please enable location access in your browser settings'
+            });
+            resolve(null);
+            return;
+          }
+        });
+      }
+
+      setIsGettingLocation(true);
+      console.log('Requesting location permission...');
+      
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          console.log('Location permission granted, getting coordinates...');
+          const { latitude, longitude } = position.coords;
+          
+          try {
+            // Reverse geocoding to get city name
+            const response = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+            );
+            const data = await response.json();
+            
+            const location = {
+              lat: latitude,
+              lng: longitude,
+              city: data.city || data.locality || 'Unknown Location'
+            };
+            
+            console.log('Location detected:', location);
+            setUserLocation(location);
+            setLocationPermission('granted');
+            setIsGettingLocation(false);
+            resolve(location);
+          } catch (error) {
+            console.error('Error getting city name:', error);
+            const location = {
+              lat: latitude,
+              lng: longitude,
+              city: 'Current Location'
+            };
+            setUserLocation(location);
+            setLocationPermission('granted');
+            setIsGettingLocation(false);
+            resolve(location);
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          setIsGettingLocation(false);
+          
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              console.log('Location permission denied by user');
+              setLocationPermission('denied');
+              toast.error('Location permission denied', {
+                description: 'Please allow location access to find nearby businesses'
+              });
+              break;
+            case error.POSITION_UNAVAILABLE:
+              console.log('Location information unavailable');
+              setLocationPermission('denied');
+              toast.error('Location unavailable', {
+                description: 'Unable to determine your location'
+              });
+              break;
+            case error.TIMEOUT:
+              console.log('Location request timed out');
+              setLocationPermission('denied');
+              toast.error('Location timeout', {
+                description: 'Location request took too long'
+              });
+              break;
+            default:
+              console.log('Unknown location error');
+              setLocationPermission('denied');
+              toast.error('Location error', {
+                description: 'An unknown error occurred'
+              });
+              break;
+          }
+          resolve(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000, // Increased timeout
+          maximumAge: 0 // Don't use cached location
+        }
+      );
+    });
+  };
+
+  const handleLocationRequest = async () => {
+    const location = await getCurrentLocation();
+    if (location) {
+      toast.success(`Location detected: ${location.city}`);
+    } else {
+      toast.error('Could not detect location. Please try again or enter your city manually.');
+      setShowCityInput(true);
+    }
+  };
+
+  const handleManualCitySubmit = async () => {
+    if (!manualCity.trim()) return;
+    
+    // Use city coordinates for major cities
+    const cityCoordinates: { [key: string]: { lat: number, lng: number } } = {
+      'mumbai': { lat: 19.0760, lng: 72.8777 },
+      'delhi': { lat: 28.7041, lng: 77.1025 },
+      'bangalore': { lat: 12.9716, lng: 77.5946 },
+      'chennai': { lat: 13.0827, lng: 80.2707 },
+      'hyderabad': { lat: 17.3850, lng: 78.4867 },
+      'pune': { lat: 18.5204, lng: 73.8567 },
+      'kolkata': { lat: 22.5726, lng: 88.3639 },
+      'ahmedabad': { lat: 23.0225, lng: 72.5714 },
+      'jaipur': { lat: 26.9124, lng: 75.7873 },
+      'surat': { lat: 21.1702, lng: 72.8311 },
+      'dombivli': { lat: 19.2167, lng: 73.0833 },
+      'thane': { lat: 19.2183, lng: 72.9781 },
+      'navi mumbai': { lat: 19.0330, lng: 73.0297 }
+    };
+    
+    const cityKey = manualCity.toLowerCase().trim();
+    const coords = cityCoordinates[cityKey];
+    
+    if (coords) {
+      const location = {
+        lat: coords.lat,
+        lng: coords.lng,
+        city: manualCity.trim()
+      };
+      setUserLocation(location);
+      setLocationPermission('granted');
+      setShowCityInput(false);
+      setManualCity('');
+      toast.success(`Location set to: ${location.city}`);
+    } else {
+      toast.error('City not found. Please enter a major city name.');
+    }
+  };
+
+  const toggleQuestionExpansion = (questionKey: string) => {
+    setExpandedQuestions(prev => ({
+      ...prev,
+      [questionKey]: !prev[questionKey]
+    }));
+  };
+
+  const handleAnswerChange = (questionKey: string, answer: string) => {
+    setQuestionAnswers(prev => ({
+      ...prev,
+      [questionKey]: answer
+    }));
+  };
+
+  const handleAnswerSubmit = (questionKey: string, question: string) => {
+    const answer = questionAnswers[questionKey];
+    if (!answer?.trim()) {
+      toast.error('Please enter an answer before submitting');
+      return;
+    }
+    
+    // Create a personalized query with the user's answer
+    const personalizedQuery = `${question}\n\nMy answer: ${answer}`;
+    handleSend(personalizedQuery);
+    
+    // Clear the answer and collapse the question
+    setQuestionAnswers(prev => ({
+      ...prev,
+      [questionKey]: ''
+    }));
+    setExpandedQuestions(prev => ({
+      ...prev,
+      [questionKey]: false
+    }));
+  };
 
   const handleSend = async (message?: string) => {
     const messageToSend = message || input.trim();
@@ -130,6 +569,37 @@ export default function Chat() {
       };
       
       setMessages(prev => [...prev, aiMessage]);
+      
+      // Save to Firebase if user is authenticated
+      if (currentUser) {
+        try {
+          const chatMessageData: any = {
+            userId: currentUser.uid,
+            userMessage: messageToSend,
+            aiResponse: aiResponse.content,
+            metadata: {
+              language: selectedLanguage || 'en',
+              feature: 'AI Chatbot',
+              sessionId: Date.now().toString(),
+            },
+          };
+
+          // Only add generatedImages if they exist and are not empty
+          if (aiResponse.generatedImages && aiResponse.generatedImages.length > 0) {
+            chatMessageData.generatedImages = aiResponse.generatedImages.map(img => ({
+              prompt: img.prompt,
+              imageUrl: img.imageUrl || '',
+              isGenerated: img.isGenerated || false,
+            }));
+          }
+
+          await chatHistoryService.saveMessage(chatMessageData);
+        } catch (error) {
+          console.error('Failed to save chat message:', error);
+          // Don't show error to user, just log it
+        }
+      }
+      
       setIsTyping(false);
     } catch (error) {
       console.error('Failed to get AI response:', error);
@@ -147,6 +617,16 @@ export default function Chat() {
   };
 
   const handleLanguageSelect = (languageCode: string) => {
+    setSelectedLanguage(languageCode);
+    setIsLoadingAfterLanguageSelect(true);
+    
+    // Load chat history after language selection
+    if (currentUser) {
+      loadChatHistory();
+    }
+  };
+
+  const handleLanguageSelectOld = (languageCode: string) => {
     setSelectedLanguage(languageCode);
 
     const welcomeMessages: { [key: string]: string } = {
@@ -303,7 +783,8 @@ export default function Chat() {
         craft: 'Traditional crafts',
         language: selectedLanguage || 'en',
         businessSize: 'Small',
-        location: 'India',
+        location: userLocation?.city || 'India',
+        coordinates: userLocation ? `${userLocation.lat},${userLocation.lng}` : null,
         products: ['Handwoven textiles', 'Traditional crafts', 'Artisan products']
       };
 
@@ -330,7 +811,6 @@ export default function Chat() {
       }
 
       const aiResponse = await response.json();
-      console.log('🎨 Frontend received AI response:', aiResponse);
       return {
         content: aiResponse.content || "I'm sorry, I couldn't generate a response right now. Please try again.",
         needsMoreInfo: aiResponse.needsMoreInfo,
@@ -382,6 +862,22 @@ export default function Chat() {
 
     return "I'm here to help with your artisan business! I can assist you with:\n\n🎯 **Marketing:** Social media content, captions, hashtags\n📖 **Storytelling:** Product stories, brand narrative\n💰 **Pricing:** Market analysis, seasonal pricing\n📸 **Photography:** Product photo tips\n🎤 **Voice Support:** Upload details in your language\n📊 **Analytics:** Sales insights and trends\n\nWhat specific area would you like to explore? You can also use the quick action buttons below to get started!";
   };
+
+  // Full-page loading screen after language selection
+  if (isLoadingAfterLanguageSelect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="Strich1" style={{ position: 'relative', width: '130px', height: '50px', background: '#000', borderRadius: '25px', transform: 'rotate(45deg)', boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)', zIndex: 0 }}>
+          <div className="Strich2" style={{ position: 'absolute', width: '130px', height: '50px', background: '#000', borderRadius: '25px', transform: 'rotate(-90deg)', boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)', zIndex: 0 }}>
+            <div className="bubble" style={{ position: 'absolute', top: '0', left: '15px', width: '20px', height: '20px', borderRadius: '50%', background: 'radial-gradient(circle at 30% 30%, #ffb3c1, #e64980, #ff8787)', animation: 'dropAndShift 5s ease-in-out infinite', zIndex: 1 }}></div>
+            <div className="bubble1" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #edb3ff, #ac49e6, #fb87ff)', borderRadius: '50%', left: '8px', animation: 'dropAndShift 6s ease-in-out infinite', zIndex: 2 }}></div>
+            <div className="bubble2" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #b3d8ff, #4963e6, #87a7ff)', borderRadius: '50%', left: '12px', animation: 'dropAndShift 4s ease-in-out infinite', zIndex: 3 }}></div>
+            <div className="bubble3" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #b3ffbc, #35a32f, #75ba61)', borderRadius: '50%', left: '10px', animation: 'dropAndShift 7s ease-in-out infinite', zIndex: 4 }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Language Selection Screen
   if (!selectedLanguage) {
@@ -444,6 +940,10 @@ export default function Chat() {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-4xl">
+        
+        
+
+        
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
@@ -454,14 +954,73 @@ export default function Chat() {
                 Get personalized help with marketing, storytelling, pricing, and growing your craft business
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedLanguage(null)}
-              className="text-xs"
-            >
-              Change Language
-            </Button>
+            <div className="flex gap-2">
+              {!userLocation && !showCityInput && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLocationRequest}
+                  disabled={isGettingLocation}
+                  className="text-xs"
+                >
+                  {isGettingLocation ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border border-primary border-t-transparent mr-1"></div>
+                      Getting Location...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-3 w-3 mr-1" />
+                      Enable Location
+                    </>
+                  )}
+                </Button>
+              )}
+              {showCityInput && (
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="Enter city name"
+                    value={manualCity}
+                    onChange={(e) => setManualCity(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleManualCitySubmit()}
+                    className="text-xs h-8 w-32"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleManualCitySubmit}
+                    disabled={!manualCity.trim()}
+                    className="text-xs h-8"
+                  >
+                    Set
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowCityInput(false);
+                      setManualCity('');
+                    }}
+                    className="text-xs h-8"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              {userLocation && (
+                <Badge variant="secondary" className="text-xs">
+                  <MapPin className="h-3 w-3 mr-1" />
+                  {userLocation.city}
+                </Badge>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedLanguage(null)}
+                className="text-xs"
+              >
+                Change Language
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -469,30 +1028,137 @@ export default function Chat() {
         <div className="grid grid-cols-4 gap-2 md:grid-cols-2 lg:grid-cols-4 md:gap-4 mb-6">
           {quickActions.map((action, index) => {
             const Icon = action.icon;
+            const questionKey = `question_${index}`;
+            const isExpanded = expandedQuestions[questionKey];
+            const currentAnswer = questionAnswers[questionKey] || '';
+            
             return (
-              <Button
-                key={index}
-                variant="outline"
-                className="p-2 h-auto flex items-center justify-center hover:border-primary/50 hover:bg-primary aspect-square group md:aspect-auto md:flex-col md:space-y-2 md:p-4"
-                onClick={() => handleSend(action.query)}
-                title={action.label}
-              >
-                <Icon className="h-4 w-4 text-primary group-hover:text-white transition-colors md:h-6 md:w-6" />
-                <span className="hidden md:block text-sm font-medium group-hover:text-white transition-colors">
-                  {action.label}
-                </span>
-              </Button>
+              <div key={index} className="flex flex-col">
+                <Button
+                  variant="outline"
+                  className="p-2 h-auto flex items-center justify-center hover:border-primary/50 hover:bg-primary aspect-square group md:aspect-auto md:flex-col md:space-y-2 md:p-4"
+                  onClick={() => toggleQuestionExpansion(questionKey)}
+                  title={action.label}
+                >
+                  <Icon className="h-4 w-4 text-primary group-hover:text-white transition-colors md:h-6 md:w-6" />
+                  <span className="hidden md:block text-sm font-medium group-hover:text-white transition-colors">
+                    {action.label}
+                  </span>
+                  <div className="ml-1">
+                    {isExpanded ? (
+                      <ChevronUp className="h-3 w-3 text-primary group-hover:text-white" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3 text-primary group-hover:text-white" />
+                    )}
+                  </div>
+                </Button>
+                
+                {/* Expandable Answer Section */}
+                {isExpanded && (
+                  <div className="mt-2 p-3 bg-muted/50 rounded-lg border">
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground font-medium">
+                        {action.query}
+                      </p>
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Enter your answer or details..."
+                          value={currentAnswer}
+                          onChange={(e) => handleAnswerChange(questionKey, e.target.value)}
+                          className="text-sm"
+                          onKeyPress={(e) => e.key === 'Enter' && handleAnswerSubmit(questionKey, action.query)}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleAnswerSubmit(questionKey, action.query)}
+                            disabled={!currentAnswer.trim()}
+                            className="flex-1"
+                          >
+                            <Send className="h-3 w-3 mr-1" />
+                            Submit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSend(action.query)}
+                            className="flex-1"
+                          >
+                            Ask Directly
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
 
         {/* Chat Interface */}
-        <Card className="h-[600px] flex flex-col">
-          <CardContent className="flex-1 p-0 flex flex-col">
-            {/* Messages Container - Fixed height with scroll */}
-            <div className="flex-1 overflow-hidden max-h-[500px]">
-              <ScrollArea className="h-full w-full">
-                <div className="p-6 space-y-4">
+        <div className="h-[600px]">
+          {/* Main Chat Area */}
+          <div className="h-full flex flex-col">
+            <Card className="h-full flex flex-col">
+              <CardContent className="flex-1 p-0 flex flex-col">
+                {/* Messages Container - Fixed height with scroll */}
+                <div className="flex-1 overflow-hidden max-h-[500px]">
+                  <ScrollArea className="h-full w-full">
+                    <div className="p-6 space-y-4">
+                  {/* Load More Button - at the top */}
+                  {hasMoreMessages && !isLoadingHistory && messages.length > 0 && (
+                    <div className="flex justify-center py-4">
+              <Button 
+                        variant="outline"
+                        onClick={loadMoreMessages}
+                        disabled={isLoadingMore}
+                        className="flex items-center gap-2"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                            Loading more...
+                          </>
+                        ) : (
+                          <>
+                            Load More Messages
+                          </>
+                        )}
+              </Button>
+            </div>
+                  )}
+
+                  {isLoadingHistory && (
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <div className="relative mb-6" style={{ width: '200px', height: '100px' }}>
+                        <div className="Strich1" style={{ position: 'absolute', width: '130px', height: '50px', background: '#000', borderRadius: '25px', transform: 'rotate(45deg)', boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)', zIndex: 0 }}>
+                          <div className="Strich2" style={{ position: 'absolute', width: '130px', height: '50px', background: '#000', borderRadius: '25px', transform: 'rotate(-90deg)', boxShadow: '0 4px 10px rgba(0, 0, 0, 0.4)', zIndex: 0 }}>
+                            <div className="bubble" style={{ position: 'absolute', top: '0', left: '15px', width: '20px', height: '20px', borderRadius: '50%', background: 'radial-gradient(circle at 30% 30%, #ffb3c1, #e64980, #ff8787)', zIndex: 1 }}></div>
+                            <div className="bubble1" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #edb3ff, #ac49e6, #fb87ff)', borderRadius: '50%', left: '8px', zIndex: 2 }}></div>
+                            <div className="bubble2" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #b3d8ff, #4963e6, #87a7ff)', borderRadius: '50%', left: '12px', zIndex: 3 }}></div>
+                            <div className="bubble3" style={{ position: 'absolute', top: '0', width: '20px', height: '20px', background: 'radial-gradient(circle at 30% 30%, #b3ffbc, #35a32f, #75ba61)', borderRadius: '50%', left: '10px', zIndex: 4 }}></div>
+                          </div>
+                          </div>
+                        </div>
+                      <div className="text-center">
+                        <div className="text-lg font-medium text-muted-foreground mb-2">
+                          Please wait...
+                      </div>
+                        <div className="text-sm text-muted-foreground">
+                          Loading your chat history
+                    </div>
+                      </div>
+                    </div>
+                  )}
+                  {messages.length === 0 && !isLoadingHistory && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="text-center text-muted-foreground">
+                        <div className="text-sm">No chat history found</div>
+                        <div className="text-xs mt-1">Start a conversation to see your messages here</div>
+                      </div>
+                    </div>
+                  )}
                   {messages.map((message) => (
                     <div
                       key={message.id}
@@ -568,19 +1234,6 @@ export default function Chat() {
                         {/* Generated Images */}
                         {message.generatedImages && message.generatedImages.length > 0 && (
                           <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                            {(() => {
-                              console.log('🎨 Frontend Debug - generatedImages:', message.generatedImages);
-                              message.generatedImages.forEach((img, index) => {
-                                console.log(`🎨 Image ${index + 1}:`, {
-                                  id: img.id,
-                                  style: img.style,
-                                  imageUrl: img.imageUrl ? `${img.imageUrl.substring(0, 50)}...` : 'NO URL',
-                                  isGenerated: img.isGenerated,
-                                  hasImageUrl: !!img.imageUrl
-                                });
-                              });
-                              return null;
-                            })()}
                             <div className="text-sm font-medium text-purple-800 mb-3 flex items-center gap-2">
                               🎨 {message.generatedImages.some(img => img.isGenerated) ? 'AI-Generated Images' : 'AI Image Ideas for Your Craft'}
                             </div>
@@ -604,15 +1257,6 @@ export default function Chat() {
                                   </div>
                                   
                                   {/* Show actual generated image if available */}
-                                  {(() => {
-                                    console.log(`🎨 Image Display Debug for ${img.style}:`, {
-                                      hasImageUrl: !!img.imageUrl,
-                                      isGenerated: img.isGenerated,
-                                      condition: !!(img.imageUrl && img.isGenerated),
-                                      imageUrlLength: img.imageUrl ? img.imageUrl.length : 0
-                                    });
-                                    return null;
-                                  })()}
                                   {img.imageUrl && img.isGenerated ? (
                                     <div className="mb-3">
                                       <img 
@@ -722,6 +1366,8 @@ export default function Chat() {
                       )}
                     </div>
                   ))}
+
+
 
                   {isTyping && (
                     <div className="flex items-start space-x-3">
@@ -869,6 +1515,8 @@ export default function Chat() {
             </div>
           </CardContent>
         </Card>
+          </div>
+        </div>
       </div>
     </Layout>
   );

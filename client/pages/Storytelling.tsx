@@ -17,8 +17,12 @@ import {
   Wand2,
   Clock,
   FileVideo,
-  AlertCircle
+  AlertCircle,
+  History,
+  Trash2
 } from "lucide-react";
+import { unifiedHistoryService, type StoryHistoryItem } from "@/lib/unifiedHistory";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 interface StoryPrompt {
@@ -43,6 +47,7 @@ interface Language {
 }
 
 export default function Storytelling() {
+  const { currentUser } = useAuth();
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
   const [storyPrompt, setStoryPrompt] = useState('');
   const [enhancedPrompt, setEnhancedPrompt] = useState('');
@@ -50,6 +55,9 @@ export default function Storytelling() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [stories, setStories] = useState<StoryPrompt[]>([]);
   const [currentStory, setCurrentStory] = useState<StoryPrompt | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyItems, setHistoryItems] = useState<StoryHistoryItem[]>([]);
 
   const languages: Language[] = [
     { code: 'en', name: 'English', native: 'English', script: 'Latin' },
@@ -66,6 +74,28 @@ export default function Storytelling() {
     { code: 'or', name: 'Odia', native: 'ଓଡ଼ିଆ', script: 'Odia' },
     { code: 'as', name: 'Assamese', native: 'অসমীয়া', script: 'Bengali' },
   ];
+
+  // Load story history when component mounts
+  useEffect(() => {
+    if (currentUser) {
+      loadStoryHistory();
+    }
+  }, [currentUser]);
+
+  const loadStoryHistory = async () => {
+    if (!currentUser) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      const history = await unifiedHistoryService.getFeatureHistory(currentUser.uid, 'storytelling', 20);
+      setHistoryItems(history);
+    } catch (error) {
+      console.error('Failed to load story history:', error);
+      toast.error('Failed to load story history');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const handleLanguageSelect = (languageCode: string) => {
     setSelectedLanguage(languageCode);
@@ -137,6 +167,26 @@ export default function Storytelling() {
           toast.success("Prompt Enhanced", {
             description: "AI has enhanced your story prompt",
           });
+          
+          // Save to history
+          if (currentUser) {
+            try {
+              await unifiedHistoryService.saveHistoryItem({
+                userId: currentUser.uid,
+                feature: 'storytelling',
+                type: 'story',
+                originalPrompt: prompt,
+                enhancedPrompt: data.content,
+                status: 'enhanced',
+                metadata: {
+                  language: selectedLanguage || 'en',
+                  sessionId: Date.now().toString(),
+                }
+              });
+            } catch (error) {
+              console.error('Failed to save story to history:', error);
+            }
+          }
         } catch (parseError) {
           // If parsing fails, use the content directly
           setEnhancedPrompt(data.content);
@@ -340,17 +390,98 @@ export default function Storytelling() {
                 Create engaging product stories and convert them to videos with AI assistance
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedLanguage(null)}
-              className="text-xs"
-            >
-              <Languages className="h-4 w-4 mr-2" />
-              Change Language
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedLanguage(null)}
+                className="text-xs"
+              >
+                <Languages className="h-4 w-4 mr-2" />
+                Change Language
+              </Button>
+              {currentUser && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="text-xs"
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  {showHistory ? 'Hide History' : 'Show History'}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* History Panel */}
+        {showHistory && currentUser && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Story History
+                {isLoadingHistory && (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {historyItems.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No story history yet</p>
+                  <p className="text-sm">Create your first story to see it here</p>
+                </div>
+              ) : (
+                <ScrollArea className="h-64">
+                  <div className="space-y-3">
+                    {historyItems.map((item) => (
+                      <div key={item.id} className="border rounded-lg p-3 hover:bg-secondary/50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium mb-1">
+                              {item.originalPrompt.substring(0, 100)}
+                              {item.originalPrompt.length > 100 && '...'}
+                            </p>
+                            {item.enhancedPrompt && (
+                              <p className="text-xs text-muted-foreground mb-2">
+                                Enhanced: {item.enhancedPrompt.substring(0, 80)}
+                                {item.enhancedPrompt.length > 80 && '...'}
+                              </p>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {item.status}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {item.timestamp.toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setStoryPrompt(item.originalPrompt);
+                              if (item.enhancedPrompt) {
+                                setEnhancedPrompt(item.enhancedPrompt);
+                              }
+                            }}
+                            className="text-xs"
+                          >
+                            Load
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Story Creation Panel */}
