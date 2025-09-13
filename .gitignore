@@ -15,6 +15,9 @@ dist-ssr
 # Keep .env.production for production deployments
 !.env.production
 
+# Google Cloud credentials (sensitive)
+googlecloudjson-fixed.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
