@@ -48,7 +48,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      // Create user data in Firebase after successful login
+      if (result.user) {
+        await createUserDataIfNeeded(result.user);
+      }
     } catch (error) {
       console.error('Error signing in with Google:', error);
       throw error;
@@ -65,6 +69,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
           displayName: displayName
         });
       }
+      
+      // Create user data in Firebase after successful signup
+      if (userCredential.user) {
+        await createUserDataIfNeeded(userCredential.user);
+      }
     } catch (error) {
       console.error('Error signing up with email:', error);
       throw error;
@@ -73,7 +82,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // Create user data in Firebase after successful login
+      if (result.user) {
+        await createUserDataIfNeeded(result.user);
+      }
     } catch (error) {
       console.error('Error signing in with email:', error);
       throw error;
@@ -86,6 +99,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
+    }
+  };
+
+  // Helper function to create user data if it doesn't exist
+  const createUserDataIfNeeded = async (user: User) => {
+    try {
+      const userInfo = {
+        email: user.email || '',
+        displayName: user.displayName || undefined,
+        businessName: user.displayName ? `${user.displayName}'s Business` : undefined,
+        businessType: 'artisan',
+        location: 'Unknown'
+      };
+
+      const response = await fetch('/api/dashboard/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          userInfo
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ User data created successfully');
+      } else {
+        console.log('ℹ️ User data may already exist or creation failed');
+      }
+    } catch (error) {
+      console.error('Error creating user data:', error);
+      // Don't throw error here as it's not critical for login
     }
   };
 

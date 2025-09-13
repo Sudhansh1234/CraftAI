@@ -1,12 +1,16 @@
 import { RequestHandler } from "express";
 
+// Context: QUESTIONNAIRE MODE - Handles general AI chat and location queries
+// This route is for general AI assistance, not flow generation
+
 // Lazy initialization of Vertex AI to avoid Vite build issues
 let vertexAI: any = null;
 let model: any = null;
 let visionAI: any = null;
 let imagenModel: any = null;
+let googleGenAI: any = null;
 
-async function initializeVertexAI() {
+export async function initializeVertexAI() {
   if (!vertexAI) {
     const { VertexAI } = await import('@google-cloud/vertexai');
     vertexAI = new VertexAI({
@@ -21,13 +25,67 @@ async function initializeVertexAI() {
         temperature: 0.8,
         topP: 0.9,
       },
-      systemInstruction: "You are CraftAI, an expert AI assistant for Indian artisans. Be conversational, practical, and culturally sensitive. Provide specific, actionable advice without repetitive greetings."
+      systemInstruction: `You are ArtisAI, an AI-powered marketplace assistant designed to help local artisans set up their profiles, list products, and grow their businesses.  
+You must always be polite, supportive, and use simple conversational language.  
+Your goal is to guide artisans step by step and adapt your questions dynamically based on missing information.  
+
+## Core Functions
+1. **Account Setup & Product Listing**
+   - Collect artisan details (name, craft type, location, contact).
+   - Collect product details (product name, category, material, price, stock, photos).
+   - Ask only for missing information (dynamic questionnaire style).
+   - Confirm and summarize details before saving.
+
+2. **City Name Recognition & Location-Based Support**
+   - Accept manual city input from the user.
+   - Identify the artisan's location and store it.
+   - Suggest nearby suppliers, wholesalers, and raw material markets using Google Maps API.
+   - Discover local craft fairs or exhibitions.
+   - Always sort search results by proximity.
+
+3. **Smart Quick Actions (Dynamic Shortcuts)**
+   - Contextual Buttons based on situation:
+     - Location actions: "Find Suppliers", "Local Markets".
+     - Business actions: "Pricing Help", "Marketing Tips".
+     - Image actions: "Generate Images", "Photo Tips".
+   - Recommend next steps clearly (like "Would you like me to suggest suppliers near you?").
+
+4. **Marketing Support**
+   - Give tips for using Instagram, Facebook, WhatsApp effectively.
+   - Generate social media content (captions, post ideas, hashtags).
+   - Suggest a marketing calendar (e.g., seasonal festivals, special offers).
+   - Help with hashtag generation tailored to craft type.
+
+5. **Pricing Assistance**
+   - Suggest pricing strategies (cost-based, value-based).
+   - Provide competitor pricing insights (approximate, market-based).
+   - Help calculate profit margins.
+   - Suggest bulk/wholesale pricing if artisan mentions wholesale.
+
+6. **Business Insights**
+   - Share local and global market trends relevant to crafts.
+   - Suggest growth strategies (e.g., online shops, collaborations).
+   - Provide customer engagement tips (loyalty, retention).
+   - Recommend sales optimization tactics (better product descriptions, bundling).
+
+## Behavior Rules
+- Always remember previous answers in the current session (chat history).
+- Summarize what's collected so far when the artisan seems confused.
+- Keep responses short and conversational (2–4 sentences max).
+- Use encouraging tone: "That's wonderful!", "Great choice!", "Perfect, let's move forward."
+- When suggesting actions, always offer **clear next steps** or **quick buttons**.
+
+## Example Flow
+👩‍🎨 Artisan: "I want to sell handmade pottery."  
+🤖 Bot: "That's wonderful! Can you tell me your city so I can suggest local markets and fairs?"  
+👩‍🎨 Artisan: "Jaipur."  
+🤖 Bot: "Great! I'll remember that. Would you like me to show nearby suppliers or start setting up your first product listing?"`
     });
   }
   return { vertexAI, model };
 }
 
-async function initializeVisionAI() {
+export async function initializeVisionAI() {
   if (!visionAI) {
     const { ImageAnnotatorClient } = await import('@google-cloud/vision');
     visionAI = new ImageAnnotatorClient({
@@ -37,7 +95,7 @@ async function initializeVisionAI() {
   return visionAI;
 }
 
-async function initializeImagenAI() {
+export async function initializeImagenAI() {
   if (!imagenModel) {
     const { VertexAI } = await import('@google-cloud/vertexai');
     const vertexAIInstance = new VertexAI({
@@ -56,6 +114,8 @@ async function initializeImagenAI() {
   }
   return imagenModel;
 }
+
+// Removed Google GenAI initialization - using Vertex AI directly instead
 
 export interface AIResponse {
   content: string;
@@ -125,7 +185,7 @@ export interface PricingRecommendation {
 
 // Enhanced system prompts with specific expertise areas
 const systemPrompts: { [key: string]: string } = {
-  'en': `You are CraftAI, the leading AI business advisor for Indian artisans and traditional craft businesses. Your expertise spans:
+  'en': `You are ArtisAI, the leading AI business advisor for Indian artisans and traditional craft businesses. Your expertise spans:
 
 CORE COMPETENCIES:
 • Digital Marketing Strategy & Social Media Growth
@@ -157,7 +217,7 @@ RESPONSE STRUCTURE:
 
 Remember: Every response should help the artisan grow their business TODAY.`,
 
-  'hi': `आप CraftAI हैं, भारतीय कारीगरों और पारंपरिक शिल्प व्यवसायों के लिए अग्रणी AI व्यावसायिक सलाहकार। आपकी विशेषज्ञता में शामिल है:
+  'hi': `आप ArtisAI हैं, भारतीय कारीगरों और पारंपरिक शिल्प व्यवसायों के लिए अग्रणी AI व्यावसायिक सलाहकार। आपकी विशेषज्ञता में शामिल है:
 
 मुख्य योग्यताएं:
 • डिजिटल मार्केटिंग रणनीति और सोशल मीडिया विकास
@@ -172,7 +232,7 @@ Remember: Every response should help the artisan grow their business TODAY.`,
 
 याद रखें: हर उत्तर कारीगर को आज ही अपना व्यवसाय बढ़ाने में मदद करना चाहिए।`,
 
-  'bn': `আপনি CraftAI, ভারতীয় কারিগর এবং ঐতিহ্যবাহী কারুশিল্প ব্যবসার জন্য নেতৃস্থানীয় AI ব্যবসায়িক পরামর্শদাতা। আপনার দক্ষতার ক্ষেত্র:
+  'bn': `আপনি ArtisAI, ভারতীয় কারিগর এবং ঐতিহ্যবাহী কারুশিল্প ব্যবসার জন্য নেতৃস্থানীয় AI ব্যবসায়িক পরামর্শদাতা। আপনার দক্ষতার ক্ষেত্র:
 
 মূল দক্ষতা:
 • ডিজিটাল বিপণন কৌশল এবং সোশ্যাল মিডিয়া বৃদ্ধি
@@ -398,7 +458,7 @@ function buildEnhancedPrompt(message: string, context: ArtisanContext | undefine
   return enhancedPrompt;
 }
 
-function extractTextFromResponse(response: any): string {
+export function extractTextFromResponse(response: any): string {
   if (typeof response.text === 'function') {
     return response.text();
   } else if (typeof response.text === 'string') {
@@ -805,7 +865,7 @@ async function generateComprehensiveImages(craft: string, context: string, langu
       let imageUrl: string | null = null;
       if (index === 0) {
         console.log('🎨 Attempting real image generation for hero shot...');
-        imageUrl = await generateImageWithImagen(strategy.prompt);
+        imageUrl = await generateImageWithGemini25(strategy.prompt);
       }
 
       const caption = generateEnhancedCaption(craft, strategy.style, strategy.platform, language);
@@ -860,65 +920,128 @@ async function generateComprehensiveImages(craft: string, context: string, langu
   return generatedImages;
 }
 
-async function generateImageWithImagen(prompt: string): Promise<string | null> {
+export async function generateImageWithGemini25(prompt: string, productImageData?: string): Promise<string | null> {
   try {
-    console.log('🔌 Calling Imagen API...');
+    console.log('🎨 Using Gemini 2.5 Flash Image Preview to generate image...');
     
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
-    const location = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const { GoogleGenAI } = await import('@google/genai');
     
-    if (!projectId) {
-      throw new Error('GOOGLE_CLOUD_PROJECT_ID not configured');
-    }
-
-    // Get access token
-    const { exec } = await import('child_process');
-    const { promisify } = await import('util');
-    const execAsync = promisify(exec);
+    // We need a proper API key for @google/genai package
+    // For now, let's use a placeholder and show the user what's needed
+    const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
     
-    const { stdout: token } = await execAsync('gcloud auth print-access-token');
-    const accessToken = token.trim();
-
-    const requestBody = {
-      instances: [{ prompt }],
-      parameters: {
-        aspectRatio: "1:1",
-        sampleCount: 1,
-        enhancePrompt: true,
-        addWatermark: false,
-        safetySetting: "block_few"
-      }
-    };
-
-    const apiUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-3.0-generate-001:predict`;
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🔌 Imagen API error:', errorText);
+    if (!apiKey) {
+      console.log('⚠️ GOOGLE_CLOUD_API_KEY not found. Please set up an API key for @google/genai package.');
+      console.log('📝 To get an API key:');
+      console.log('   1. Go to https://aistudio.google.com/app/apikey');
+      console.log('   2. Create a new API key');
+      console.log('   3. Add GOOGLE_CLOUD_API_KEY=your_api_key to your .env.local file');
       return null;
     }
-
-    const result = await response.json();
     
-    if (result.predictions?.[0]?.bytesBase64Encoded) {
-      const imageData = result.predictions[0].bytesBase64Encoded;
-      console.log('✅ Image generated successfully');
-      return `data:image/png;base64,${imageData}`;
+    const ai = new GoogleGenAI({
+      apiKey: apiKey,
+    });
+    
+    const model = 'gemini-2.5-flash-image-preview';
+    
+    // Set up generation config
+    const generationConfig = {
+      maxOutputTokens: 32768,
+      temperature: 1,
+      topP: 0.95,
+      responseModalities: ["TEXT", "IMAGE"],
+      safetySettings: [
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'OFF',
+        },
+        {
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          threshold: 'OFF',
+        },
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'OFF',
+        },
+        {
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'OFF',
+        }
+      ],
+    };
+
+    // Prepare the request
+    const parts: any[] = [{ text: prompt }];
+    
+    // If product image is provided, add it to the request
+    if (productImageData) {
+      const base64Data = productImageData.replace(/^data:image\/[a-z]+;base64,/, '');
+      const mimeType = productImageData.match(/^data:image\/([a-z]+);base64,/)?.[1] || 'jpeg';
+      
+      const imagePart = {
+        inlineData: {
+          mimeType: `image/${mimeType}`,
+          data: base64Data
+        }
+      };
+      
+      parts.unshift(imagePart);
     }
 
-    return null;
+    const req = {
+      model: model,
+      contents: [
+        {
+          role: 'user', 
+          parts: parts
+        }
+      ],
+      config: generationConfig,
+    };
 
+    const streamingResp = await ai.models.generateContentStream(req);
+    
+    let generatedImage: string | null = null;
+    
+     for await (const chunk of streamingResp) {
+       if (chunk.text) {
+         console.log('📝 Generated text:', chunk.text);
+       }
+       
+       // Check for image data in various possible locations
+       if ((chunk as any).candidates) {
+         for (const candidate of (chunk as any).candidates) {
+           if (candidate.content && candidate.content.parts) {
+             for (const part of candidate.content.parts) {
+               if (part.inlineData && part.inlineData.data) {
+                 generatedImage = `data:image/png;base64,${part.inlineData.data}`;
+                 console.log('🖼️ Generated image received from candidate');
+                 break;
+               }
+             }
+           }
+         }
+       }
+       
+       // Also check direct image property
+       if ((chunk as any).image) {
+         if ((chunk as any).image.inlineData && (chunk as any).image.inlineData.data) {
+           generatedImage = `data:image/png;base64,${(chunk as any).image.inlineData.data}`;
+           console.log('🖼️ Generated image received from direct property');
+         }
+       }
+       
+       // Check for inlineData in the chunk itself
+       if ((chunk as any).inlineData && (chunk as any).inlineData.data) {
+         generatedImage = `data:image/png;base64,${(chunk as any).inlineData.data}`;
+         console.log('🖼️ Generated image received from inlineData');
+       }
+     }
+    
+    return generatedImage;
   } catch (error) {
-    console.error('❌ Imagen generation failed:', error);
+    console.error('❌ Gemini 2.5 Flash Image Preview generation failed:', error);
     return null;
   }
 }
@@ -1183,6 +1306,53 @@ function extractHashtags(content: string): string[] {
   const hashtagRegex = /#[\w\u0900-\u097F]+/g;
   const matches = content.match(hashtagRegex);
   return matches ? [...new Set(matches)].slice(0, 10) : [];
+}
+
+export async function generateImageWithGemini(prompt: string, productImageData: string): Promise<string | null> {
+  try {
+    console.log('🔌 Using Vertex AI Gemini to analyze product image...');
+    
+    // Use Vertex AI to analyze the uploaded image and enhance the prompt
+    const { model } = await initializeVertexAI();
+
+    // Convert base64 data to proper format
+    const base64Data = productImageData.replace(/^data:image\/[a-z]+;base64,/, '');
+    const mimeType = productImageData.match(/^data:image\/([a-z]+);base64,/)?.[1] || 'jpeg';
+    
+    const imagePart = {
+      inlineData: {
+        mimeType: `image/${mimeType}`,
+        data: base64Data
+      }
+    };
+    
+    const analysisPrompt = `Analyze this product image and describe its key visual characteristics that should be preserved in professional product photography. Focus on:
+    - Product design, shape, and form
+    - Colors, patterns, and textures
+    - Materials and craftsmanship details
+    - Unique selling points and visual appeal
+    
+    Provide a detailed description that can be used to create professional product photography while preserving these exact characteristics.`;
+    
+    const result = await model.generateContent({
+      contents: [{
+        role: 'user',
+        parts: [imagePart, { text: analysisPrompt }]
+      }]
+    });
+    const response = await result.response;
+    const analysis = extractTextFromResponse(response);
+    
+    console.log('📝 Product analysis:', analysis);
+    console.log('ℹ️ Using enhanced prompt with Imagen for generation');
+    
+    // Return null to use Imagen fallback, but the analysis helps with better prompts
+    return null;
+
+  } catch (error) {
+    console.error('❌ Gemini image analysis failed:', error);
+    return null;
+  }
 }
 
 function enhanceMarketingContent(content: string, language: string): string {

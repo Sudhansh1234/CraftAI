@@ -52,7 +52,7 @@ export default function Auth() {
       setLoading(true);
       await signInWithGoogle();
       toast.success("Successfully signed in with Google!", {
-        description: "Welcome to CraftAI! You can now access all features.",
+        description: "Welcome to ArtisAI! You can now access all features.",
       });
       navigate(from);
     } catch (error) {
@@ -73,12 +73,12 @@ export default function Auth() {
       if (isLogin) {
         await signInWithEmail(formData.email, formData.password);
         toast.success("Successfully logged in!", {
-          description: "Welcome back to CraftAI!",
+          description: "Welcome back to ArtisAI!",
         });
       } else {
         await signUpWithEmail(formData.email, formData.password, formData.name);
         toast.success("Successfully signed up!", {
-          description: "Welcome to CraftAI! You can now access all features.",
+          description: "Welcome to ArtisAI! You can now access all features.",
         });
       }
       navigate(from);
@@ -141,7 +141,7 @@ export default function Auth() {
               <div className="h-8 w-8 rounded-lg gemini-gradient flex items-center justify-center">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
-              <span className="text-2xl font-bold gemini-text-gradient">CraftAI</span>
+              <span className="text-2xl font-bold gemini-text-gradient">ArtisAI</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
               Welcome to Your <span className="gemini-text-gradient">AI-Powered</span> Craft Journey

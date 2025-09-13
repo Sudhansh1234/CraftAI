@@ -5,25 +5,31 @@ import { Badge } from "@/components/ui/badge";
 import { CountUp } from "@/components/CountUp";
 import { 
   Sparkles, 
-  MessageCircle, 
+  Workflow, 
   TrendingUp, 
   BookOpen, 
   DollarSign, 
-  Mic, 
   Camera,
   Globe,
   Clock,
   BarChart3,
   Palette,
-  Smartphone,
   ArrowRight,
   Play,
+  FileText,
   CheckCircle
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Index() {
   const features = [
+    {
+      icon: Workflow,
+      title: "Business Plan Builder",
+      description: "Answer questions to generate your personalized business roadmap with interactive flowcharts and AI-powered suggestions",
+      benefits: ["Smart questionnaire", "Interactive flowcharts", "AI suggestions", "Progress tracking"],
+      href: "/business-flow"
+    },
     {
       icon: TrendingUp,
       title: "AI-Driven Marketing",
@@ -57,15 +63,8 @@ export default function Index() {
       title: "Learning Hub",
       description: "Step-by-step training in digital marketing and customer handling",
       benefits: ["Multi-language training", "Digital marketing tips", "Tradition + modern"],
-      href: "/chat"
+      href: "/business-flow"
     },
-    {
-      icon: Mic,
-      title: "Voice-First Commerce",
-      description: "Upload product details via voice with AI translation capabilities",
-      benefits: ["Native language input", "Auto translation", "Voice dashboard"],
-      href: "/voice"
-    }
   ];
 
   const stats = [
@@ -98,25 +97,21 @@ export default function Index() {
               </div>
               
               <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl mb-6">
-                Empower Your 
-                <span className="gemini-text-gradient"> Craft Business</span> with AI
+                Build Your 
+                <span className="gemini-text-gradient"> Business Roadmap</span> with AI
               </h1>
               
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl">
-                Transform traditional craftsmanship into digital success. Our AI assistant helps artisans 
-                create content, tell stories, optimize pricing, and reach global audiences—all in your native language.
+                Create interactive business flowcharts that guide your craft business growth. Our AI-powered canvas 
+                helps you plan, track progress, and discover new opportunities—all in your native language.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <Button size="lg" className="gemini-gradient text-white border-0 hover:opacity-90" asChild>
-                  <Link to="/auth">
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    Get Started
+                  <Link to="/business-flow">
+                    <Workflow className="h-5 w-5 mr-2" />
+                    Start Business Plan
                   </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="group">
-                  <Play className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
-                  Watch Demo
                 </Button>
               </div>
               
@@ -253,14 +248,10 @@ export default function Index() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="gemini-gradient text-white border-0 hover:opacity-90" asChild>
-                <Link to="/auth">
-                  <MessageCircle className="h-5 w-5 mr-2" />
-                  Get Started
+                <Link to="/questionnaire">
+                  <Workflow className="h-5 w-5 mr-2" />
+                  Start New Plan
                 </Link>
-              </Button>
-              <Button size="lg" variant="outline">
-                <Smartphone className="h-5 w-5 mr-2" />
-                Try Voice Commerce
               </Button>
             </div>
           </div>

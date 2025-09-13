@@ -1,0 +1,29 @@
+# Environment files
+.env.local
+*.local
+
+# Logs
+logs
+*.log
+
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+
+# Editor files
+.vscode/*
+.idea
+.DS_Store
+
+# OS files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Config files
+.config/

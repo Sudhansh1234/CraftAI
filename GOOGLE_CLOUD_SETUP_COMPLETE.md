@@ -3,7 +3,7 @@
 ## ✅ **What's Been Accomplished**
 
 ### 1. **Google Cloud Credentials Added**
-- ✅ Service account JSON file: `googlecloudjson.json`
+- ✅ Service account JSON file: `googlecloudjson-fixed.json`
 - ✅ Project ID: `expanded-flame-469612-c2`
 - ✅ Service account: `craft-ai-service@expanded-flame-469612-c2.iam.gserviceaccount.com`
 
@@ -42,7 +42,7 @@ Get your Firebase project credentials from [Firebase Console](https://console.fi
 ### **Step 3: Test AI Integration**
 1. Start your dev server: `pnpm dev`
 2. Go to `/auth` and sign in
-3. Go to `/chat` and test AI responses
+3. Go to `/business-flow` and test AI responses
 
 ---
 

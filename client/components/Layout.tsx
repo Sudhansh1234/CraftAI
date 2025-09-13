@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Sparkles, MessageCircle, Home, BookOpen, DollarSign, LogOut, User, BarChart3 } from "lucide-react";
+import { Menu, X, Sparkles, Workflow, Home, LogOut, User, BarChart3, Share2, FolderOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { Footer } from "./Footer";
 
@@ -19,10 +21,8 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: "Home", href: "/", icon: Home },
     { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
-    { name: "Chat Assistant", href: "/chat", icon: MessageCircle },
-    { name: "Image Studio", href: "/images", icon: Sparkles },
-    { name: "Storytelling", href: "/storytelling", icon: BookOpen },
-    { name: "Pricing AI", href: "/pricing", icon: DollarSign },
+    { name: "Business Plan", href: "/business-flow", icon: Workflow },
+    { name: "Social Playground", href: "/social", icon: Share2 },
   ];
 
   return (
@@ -37,7 +37,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="h-8 w-8 rounded-lg gemini-gradient flex items-center justify-center">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xl font-bold gemini-text-gradient">CraftAI</span>
+                <span className="text-xl font-bold gemini-text-gradient">ArtisAI</span>
               </Link>
             </div>
 
@@ -65,34 +65,38 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* CTA Button */}
             <div className="hidden md:block">
-              {currentUser ? (
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="h-4 w-4 text-primary" />
+              <div className="flex items-center space-x-3">
+                <LanguageSelector variant="compact" />
+                <ThemeToggle variant="minimal" />
+                {currentUser ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {currentUser.displayName || currentUser.email?.split('@')[0]}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {currentUser.displayName || currentUser.email?.split('@')[0]}
-                    </span>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={logout}
+                      className="text-xs"
+                    >
+                      <LogOut className="h-3 w-3 mr-1" />
+                      Sign Out
+                    </Button>
                   </div>
+                ) : (
                   <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={logout}
-                    className="text-xs"
+                    className="gemini-gradient text-white border-0 hover:opacity-90"
+                    onClick={() => navigate('/auth')}
                   >
-                    <LogOut className="h-3 w-3 mr-1" />
-                    Sign Out
+                    Get Started
                   </Button>
-                </div>
-              ) : (
-                <Button 
-                  className="gemini-gradient text-white border-0 hover:opacity-90"
-                  onClick={() => navigate('/auth')}
-                >
-                  Get Started
-                </Button>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Mobile menu button */}

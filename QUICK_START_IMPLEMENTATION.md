@@ -468,7 +468,7 @@ const handleActionClick = (action: AIAction) => {
 
 2. **Navigate to `/auth` and sign in**
 
-3. **Go to `/chat` and test:**
+3. **Go to `/business-flow` and test:**
    - Type: "Help me create an Instagram post for my handwoven scarf"
    - Type: "How should I price my pottery?"
    - Type: "Tell me a story about my craft heritage"

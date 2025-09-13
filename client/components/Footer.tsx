@@ -12,7 +12,7 @@ export function Footer() {
               <div className="h-10 w-10 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
                 <span className="text-xl font-bold text-white">C</span>
               </div>
-              <span className="text-xl font-bold">CraftAI</span>
+              <span className="text-xl font-bold">ArtisAI</span>
             </div>
             <p className="text-gray-300 mb-6 max-w-md">
               Empowering artisans with intelligent business insights and AI-powered tools to grow their craft businesses. 
@@ -44,8 +44,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/chat" className="text-gray-300 hover:text-white transition-colors">
-                  AI Chat
+                <Link to="/business-flow" className="text-gray-300 hover:text-white transition-colors">
+                  Business Flow
                 </Link>
               </li>
               <li>
@@ -85,7 +85,7 @@ export function Footer() {
         <div className="mt-12 pt-8 border-t border-gray-700">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
-              © 2024 CraftAI. All rights reserved.
+              © 2024 ArtisAI. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <a href="#" className="text-sm text-gray-400 hover:text-white transition-colors">

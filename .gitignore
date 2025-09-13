@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env.local
+# Keep .env.production for production deployments
+!.env.production
 
 # Editor directories and files
 .vscode/*
@@ -25,6 +28,3 @@ dist-ssr
 
 .config/
 !.env
-
-# Google Cloud credentials
-googlecloudjson.json

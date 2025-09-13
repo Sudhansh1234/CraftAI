@@ -23,6 +23,31 @@ export const googleProvider = new GoogleAuthProvider();
 // Initialize Firestore and get a reference to the service
 export const db = getFirestore(app);
 
+// Configure Firestore settings for better connection handling
+import { connectFirestoreEmulator, enableNetwork, disableNetwork } from 'firebase/firestore';
+
+// Add connection retry logic
+export const initializeFirestore = async () => {
+  try {
+    // Enable network connection
+    await enableNetwork(db);
+    console.log('✅ Firestore connected successfully');
+    return db;
+  } catch (error) {
+    console.warn('⚠️ Firestore connection issue, retrying...', error);
+    // Retry after a short delay
+    setTimeout(async () => {
+      try {
+        await enableNetwork(db);
+        console.log('✅ Firestore reconnected successfully');
+      } catch (retryError) {
+        console.error('❌ Firestore connection failed after retry:', retryError);
+      }
+    }, 2000);
+    return db;
+  }
+};
+
 // Configure Google provider
 googleProvider.setCustomParameters({
   prompt: 'select_account'
