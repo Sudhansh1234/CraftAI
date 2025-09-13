@@ -32,6 +32,8 @@ export const extractUserId = (req: AuthenticatedRequest, res: Response, next: Ne
 // Get dashboard data for a user
 export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest, res) => {
   try {
+    console.log('Dashboard API called for user:', req.params.userId);
+    
     // Lazy import Firebase modules after environment variables are loaded
     const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
     
@@ -49,8 +51,38 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
     }
     
     // Check if Firebase is configured and accessible
-    if (!isFirebaseConfigured() || !(await healthCheck())) {
-      // Return empty data when Firebase is not configured or not accessible
+    console.log('Firebase configured:', isFirebaseConfigured());
+    
+    if (!isFirebaseConfigured()) {
+      console.log('Firebase not configured, returning empty data');
+      const emptyData = {
+        insights: [],
+        summary: {
+          totalInsights: 0,
+          highPriorityCount: 0,
+          actionableCount: 0,
+          weeklyGrowth: 0,
+          topCategories: []
+        },
+        recommendations: {
+          immediate: [],
+          shortTerm: [],
+          longTerm: []
+        },
+        marketTrends: {
+          trendingProducts: [],
+          seasonalOpportunities: [],
+          competitorInsights: []
+        }
+      };
+      return res.json(emptyData);
+    }
+    
+    const isHealthy = await healthCheck();
+    console.log('Firebase health check:', isHealthy);
+    
+    if (!isHealthy) {
+      console.log('Firebase not healthy, returning empty data');
       const emptyData = {
         insights: [],
         summary: {
@@ -144,9 +176,12 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
 
     res.json(dashboardData);
   } catch (error) {
+    console.error('Dashboard API error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
       error: 'Failed to fetch dashboard data',
-      details: error.message 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
@@ -410,6 +445,55 @@ export const getMarketTrends: RequestHandler = async (req, res) => {
     res.json(trends);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch market trends' });
+  }
+};
+
+// Simple test endpoint for debugging
+export const testEndpoint: RequestHandler = async (req, res) => {
+  try {
+    res.json({ 
+      message: 'Dashboard API is working',
+      timestamp: new Date().toISOString(),
+      userId: req.params.userId,
+      environment: process.env.NODE_ENV
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Test endpoint failed', details: error.message });
+  }
+};
+
+// Firebase connection test endpoint
+export const testFirebaseConnection: RequestHandler = async (req, res) => {
+  try {
+    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
+    
+    const config = {
+      FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
+      FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set',
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set',
+      FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set',
+      FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set',
+      FIREBASE_APP_ID: process.env.FIREBASE_APP_ID ? 'Set' : 'Not set'
+    };
+    
+    const isConfigured = isFirebaseConfigured();
+    const isHealthy = isConfigured ? await healthCheck() : false;
+    
+    res.json({
+      message: 'Firebase connection test',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      config,
+      isConfigured,
+      isHealthy,
+      error: isHealthy ? null : 'Firebase connection failed'
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Firebase test failed', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
