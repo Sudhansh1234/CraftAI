@@ -10,7 +10,14 @@
     },
     {
       "src": "server/index.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "server/**",
+          "shared/**",
+          "adminkey.json"
+        ]
+      }
     }
   ],
   "routes": [
@@ -30,5 +37,13 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "server/index.ts": {
+      "maxDuration": 30
+    }
+  }
 }
