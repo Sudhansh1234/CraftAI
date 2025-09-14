@@ -178,10 +178,21 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
   } catch (error) {
     console.error('Dashboard API error:', error);
     console.error('Error stack:', error.stack);
+    
+    // Return detailed error information for debugging
     res.status(500).json({ 
       error: 'Failed to fetch dashboard data',
       details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      debug: {
+        userId: req.params.userId,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        firebaseConfig: {
+          FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
+          FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set'
+        }
+      }
     });
   }
 };
@@ -451,46 +462,32 @@ export const getMarketTrends: RequestHandler = async (req, res) => {
 // Simple test endpoint for debugging
 export const testEndpoint: RequestHandler = async (req, res) => {
   try {
-    res.json({ 
+    // Test Firebase configuration
+    const { isFirebaseConfigured, healthCheck } = await import('../database/firebase');
+    
+    const debugInfo = {
       message: 'Dashboard API is working',
       timestamp: new Date().toISOString(),
       userId: req.params.userId,
-      environment: process.env.NODE_ENV
-    });
-  } catch (error) {
-    res.status(500).json({ error: 'Test endpoint failed', details: error.message });
-  }
-};
-
-// Firebase connection test endpoint
-export const testFirebaseConnection: RequestHandler = async (req, res) => {
-  try {
-    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
-    
-    const config = {
-      FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
-      FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set',
-      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set',
-      FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set',
-      FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set',
-      FIREBASE_APP_ID: process.env.FIREBASE_APP_ID ? 'Set' : 'Not set'
+      environment: process.env.NODE_ENV,
+      firebaseConfig: {
+        FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
+        FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set',
+        FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set',
+        FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set',
+        FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set',
+        FIREBASE_APP_ID: process.env.FIREBASE_APP_ID ? 'Set' : 'Not set'
+      },
+      firebaseStatus: {
+        isConfigured: isFirebaseConfigured(),
+        isHealthy: isFirebaseConfigured() ? await healthCheck() : false
+      }
     };
     
-    const isConfigured = isFirebaseConfigured();
-    const isHealthy = isConfigured ? await healthCheck() : false;
-    
-    res.json({
-      message: 'Firebase connection test',
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV,
-      config,
-      isConfigured,
-      isHealthy,
-      error: isHealthy ? null : 'Firebase connection failed'
-    });
+    res.json(debugInfo);
   } catch (error) {
     res.status(500).json({ 
-      error: 'Firebase test failed', 
+      error: 'Test endpoint failed', 
       details: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });

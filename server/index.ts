@@ -147,7 +147,6 @@ export function createServer() {
 
   // Dashboard endpoints (specific routes first to avoid conflicts)
   app.get("/api/dashboard/test", dashboardRoutes.testEndpoint);
-  app.get("/api/dashboard/test-firebase", dashboardRoutes.testFirebaseConnection);
   app.get("/api/dashboard/health", dashboardRoutes.healthCheckEndpoint);
   app.post("/api/dashboard/seed", dashboardRoutes.seedDatabase);
   app.post("/api/dashboard/create-user", dashboardRoutes.createUserDataEndpoint);

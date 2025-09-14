@@ -1,63 +1,29 @@
+# Environment files
+.env.local
+*.local
+
+# Logs
+logs
+*.log
+
 # Dependencies
-node_modules/
-.pnpm-store/
+node_modules
 
 # Build outputs
-dist/
-build/
+dist
+dist-ssr
 
-# Development files
-.env.local
-.env.development
-.env.test
-*.log
-firebase-debug.log
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
+# Editor files
+.vscode/*
+.idea
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
-# Git
-.git/
-.gitignore
+# OS files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Documentation
-*.md
-docs/
-
-# Temporary files
-temp/
-tmp/
-*.tmp
-
-# Server files (not needed for Vercel)
-server/
-cloud_sql_proxy.exe
-googlecloudjson-fixed.json
-
-# Netlify specific
-netlify/
-netlify.toml
-
-# Vercel specific
-.vercel/
-
-# Test files
-*.spec.ts
-*.test.ts
-__tests__/
-
-# Other config files
-.env.template
+# Config files
+.config/
