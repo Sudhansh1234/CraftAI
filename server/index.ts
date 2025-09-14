@@ -27,6 +27,7 @@ import {
 } from "./routes/questionnaire";
 import * as socialRoutes from "./routes/social";
 import * as dashboardRoutes from "./routes/dashboard";
+import { initializeAdminSDK, adminHealthCheck } from "./database/firebase-admin";
 
 export function createServer() {
   const app = express();
@@ -80,6 +81,39 @@ export function createServer() {
       });
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Debug endpoint to check Firebase Admin SDK
+  app.get("/api/debug/firebase-admin", async (_req, res) => {
+    try {
+      // Initialize Admin SDK
+      initializeAdminSDK();
+      
+      // Test admin connection
+      const isHealthy = await adminHealthCheck();
+      
+      res.json({
+        adminSDK: {
+          initialized: true,
+          healthy: isHealthy,
+          projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || 'craft-ai-70b27',
+          serviceAccount: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@craft-ai-70b27.iam.gserviceaccount.com',
+          authMethod: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Environment Variables' : 'Service Account Key File',
+          environmentVars: {
+            FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Set' : 'Not set',
+            FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL ? 'Set' : 'Not set',
+            FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY ? 'Set' : 'Not set'
+          }
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        adminSDK: {
+          initialized: false,
+          error: error.message
+        }
+      });
     }
   });
 

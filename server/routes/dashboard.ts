@@ -1,5 +1,6 @@
 import { RequestHandler, Request, Response, NextFunction } from 'express';
 import { createUserData } from '../database/firebase-seed';
+import { AdminFirebaseModels, adminHealthCheck } from '../database/firebase-admin';
 
 // Extend Request interface to include userId
 interface AuthenticatedRequest extends Request {
@@ -34,8 +35,8 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
   try {
     console.log('Dashboard API called for user:', req.params.userId);
     
-    // Lazy import Firebase modules after environment variables are loaded
-    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
+    // Use Admin SDK for elevated privileges
+    const FirebaseModels = AdminFirebaseModels;
     
     // Get user ID from the request (set by middleware)
     const userId = req.userId || '00000000-0000-0000-0000-000000000001';
@@ -50,39 +51,12 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
       });
     }
     
-    // Check if Firebase is configured and accessible
-    console.log('Firebase configured:', isFirebaseConfigured());
-    
-    if (!isFirebaseConfigured()) {
-      console.log('Firebase not configured, returning empty data');
-      const emptyData = {
-        insights: [],
-        summary: {
-          totalInsights: 0,
-          highPriorityCount: 0,
-          actionableCount: 0,
-          weeklyGrowth: 0,
-          topCategories: []
-        },
-        recommendations: {
-          immediate: [],
-          shortTerm: [],
-          longTerm: []
-        },
-        marketTrends: {
-          trendingProducts: [],
-          seasonalOpportunities: [],
-          competitorInsights: []
-        }
-      };
-      return res.json(emptyData);
-    }
-    
-    const isHealthy = await healthCheck();
-    console.log('Firebase health check:', isHealthy);
+    // Check if Firebase Admin SDK is healthy
+    const isHealthy = await adminHealthCheck();
+    console.log('Firebase Admin SDK health check:', isHealthy);
     
     if (!isHealthy) {
-      console.log('Firebase not healthy, returning empty data');
+      console.log('Firebase Admin SDK not healthy, returning empty data');
       const emptyData = {
         insights: [],
         summary: {
@@ -462,31 +436,28 @@ export const testEndpoint: RequestHandler = async (req, res) => {
   }
 };
 
-// Firebase connection test endpoint
+// Firebase Admin SDK connection test endpoint
 export const testFirebaseConnection: RequestHandler = async (req, res) => {
   try {
-    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
+    const FirebaseModels = AdminFirebaseModels;
     
     const config = {
-      FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
-      FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set',
-      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set',
-      FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set',
-      FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set',
-      FIREBASE_APP_ID: process.env.FIREBASE_APP_ID ? 'Set' : 'Not set'
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID || 'craft-ai-70b27',
+      SERVICE_ACCOUNT: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@craft-ai-70b27.iam.gserviceaccount.com',
+      ADMIN_SDK: 'Initialized',
+      AUTH_METHOD: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Environment Variables' : 'Service Account Key File'
     };
     
-    const isConfigured = isFirebaseConfigured();
-    const isHealthy = isConfigured ? await healthCheck() : false;
+    const isHealthy = await adminHealthCheck();
     
     res.json({
-      message: 'Firebase connection test',
+      message: 'Firebase Admin SDK connection test',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       config,
-      isConfigured,
+      isConfigured: true, // Admin SDK is always configured if it loads
       isHealthy,
-      error: isHealthy ? null : 'Firebase connection failed'
+      error: isHealthy ? null : 'Firebase Admin SDK connection failed'
     });
   } catch (error) {
     res.status(500).json({ 
