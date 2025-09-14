@@ -33,13 +33,16 @@ export const extractUserId = (req: AuthenticatedRequest, res: Response, next: Ne
 // Get dashboard data for a user
 export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest, res) => {
   try {
-    console.log('Dashboard API called for user:', req.params.userId);
+    console.log('📊 [DASHBOARD] API called for user:', req.params.userId);
+    console.log('🔧 [DASHBOARD] Request headers:', JSON.stringify(req.headers, null, 2));
     
     // Use Admin SDK for elevated privileges
     const FirebaseModels = AdminFirebaseModels;
+    console.log('🔥 [DASHBOARD] Using Firebase Admin SDK for elevated privileges');
     
     // Get user ID from the request (set by middleware)
     const userId = req.userId || '00000000-0000-0000-0000-000000000001';
+    console.log('👤 [DASHBOARD] Processing request for user ID:', userId);
 
     // Simple quota check - for demo purposes, simulate quota exceeded for certain users
     const isQuotaExceeded = userId === 'quota-exceeded-user' || Math.random() < 0.1; // 10% chance for demo
@@ -52,11 +55,12 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
     }
     
     // Check if Firebase Admin SDK is healthy
+    console.log('🏥 [DASHBOARD] Checking Firebase Admin SDK health...');
     const isHealthy = await adminHealthCheck();
-    console.log('Firebase Admin SDK health check:', isHealthy);
+    console.log('🏥 [DASHBOARD] Firebase Admin SDK health check result:', isHealthy);
     
     if (!isHealthy) {
-      console.log('Firebase Admin SDK not healthy, returning empty data');
+      console.log('❌ [DASHBOARD] Firebase Admin SDK not healthy, returning empty data');
       const emptyData = {
         insights: [],
         summary: {
@@ -77,27 +81,39 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
           competitorInsights: []
         }
       };
+      console.log('📤 [DASHBOARD] Returning empty data due to health check failure');
       return res.json(emptyData);
     }
     
     // Try to get data from separate collections first, fallback to business_metrics
+    console.log('📊 [DASHBOARD] Fetching data from Firebase collections...');
     let products = [];
     let sales = [];
     let businessMetrics = [];
     
     try {
+      console.log('🛍️ [DASHBOARD] Fetching products for user:', userId);
       products = await FirebaseModels.products.findByUserId(userId);
+      console.log(`🛍️ [DASHBOARD] Found ${products.length} products`);
+      
+      console.log('💰 [DASHBOARD] Fetching sales for user:', userId);
       sales = await FirebaseModels.sales.findByUserId(userId);
+      console.log(`💰 [DASHBOARD] Found ${sales.length} sales records`);
       
       // Combine all data for backward compatibility
       businessMetrics = [
         ...products.map(p => ({ ...p, metric_type: 'products' })),
         ...sales.map(s => ({ ...s, metric_type: 'sales' }))
       ];
+      console.log(`📊 [DASHBOARD] Combined metrics: ${businessMetrics.length} total records`);
     } catch (error) {
+      console.log('⚠️ [DASHBOARD] Error fetching from separate collections, falling back to business_metrics');
+      console.error('🔍 [DASHBOARD] Error details:', error.message);
       
       // Fallback to business_metrics collection
+      console.log('📊 [DASHBOARD] Fetching from business_metrics collection...');
       businessMetrics = await FirebaseModels.businessMetrics.findByUserId(userId);
+      console.log(`📊 [DASHBOARD] Found ${businessMetrics.length} business metrics`);
     }
     
     // Get existing insights from stored metrics (no auto-generation)
@@ -439,7 +455,15 @@ export const testEndpoint: RequestHandler = async (req, res) => {
 // Firebase Admin SDK connection test endpoint
 export const testFirebaseConnection: RequestHandler = async (req, res) => {
   try {
+    console.log('🧪 [TEST] Firebase Admin SDK connection test started');
+    console.log('🔧 [TEST] Request details:', {
+      method: req.method,
+      url: req.url,
+      headers: req.headers
+    });
+    
     const FirebaseModels = AdminFirebaseModels;
+    console.log('🔥 [TEST] Admin SDK models loaded');
     
     const config = {
       FIREBASE_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID || 'craft-ai-70b27',
@@ -448,9 +472,13 @@ export const testFirebaseConnection: RequestHandler = async (req, res) => {
       AUTH_METHOD: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Environment Variables' : 'Service Account Key File'
     };
     
-    const isHealthy = await adminHealthCheck();
+    console.log('⚙️ [TEST] Configuration:', JSON.stringify(config, null, 2));
     
-    res.json({
+    console.log('🏥 [TEST] Running health check...');
+    const isHealthy = await adminHealthCheck();
+    console.log('🏥 [TEST] Health check result:', isHealthy);
+    
+    const response = {
       message: 'Firebase Admin SDK connection test',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
@@ -458,8 +486,19 @@ export const testFirebaseConnection: RequestHandler = async (req, res) => {
       isConfigured: true, // Admin SDK is always configured if it loads
       isHealthy,
       error: isHealthy ? null : 'Firebase Admin SDK connection failed'
-    });
+    };
+    
+    console.log('✅ [TEST] Test completed successfully');
+    console.log('📤 [TEST] Response:', JSON.stringify(response, null, 2));
+    
+    res.json(response);
   } catch (error) {
+    console.error('❌ [TEST] Firebase test failed:', error);
+    console.error('🔍 [TEST] Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
     res.status(500).json({ 
       error: 'Firebase test failed', 
       details: error.message,

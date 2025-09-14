@@ -87,13 +87,24 @@ export function createServer() {
   // Debug endpoint to check Firebase Admin SDK
   app.get("/api/debug/firebase-admin", async (_req, res) => {
     try {
+      console.log('🔍 [DEBUG] Firebase Admin SDK debug endpoint called');
+      console.log('🔧 [DEBUG] Environment variables check:', {
+        FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Set' : 'Not set',
+        FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL ? 'Set' : 'Not set',
+        FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY ? 'Set' : 'Not set'
+      });
+      
       // Initialize Admin SDK
+      console.log('🔥 [DEBUG] Initializing Firebase Admin SDK...');
       initializeAdminSDK();
+      console.log('✅ [DEBUG] Firebase Admin SDK initialized');
       
       // Test admin connection
+      console.log('🏥 [DEBUG] Running health check...');
       const isHealthy = await adminHealthCheck();
+      console.log('🏥 [DEBUG] Health check result:', isHealthy);
       
-      res.json({
+      const response = {
         adminSDK: {
           initialized: true,
           healthy: isHealthy,
@@ -106,8 +117,17 @@ export function createServer() {
             FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY ? 'Set' : 'Not set'
           }
         }
-      });
+      };
+      
+      console.log('📤 [DEBUG] Sending response:', JSON.stringify(response, null, 2));
+      res.json(response);
     } catch (error) {
+      console.error('❌ [DEBUG] Firebase Admin SDK debug failed:', error);
+      console.error('🔍 [DEBUG] Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      
       res.status(500).json({ 
         adminSDK: {
           initialized: false,

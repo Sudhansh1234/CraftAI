@@ -88,53 +88,84 @@ const convertTimestamps = (data: any) => {
 // Health check for Admin SDK
 export const adminHealthCheck = async (): Promise<boolean> => {
   try {
+    console.log('🏥 [ADMIN SDK] Starting health check...');
     const db = getAdminDB();
+    console.log('🔗 [ADMIN SDK] Database connection established');
+    
     // Try to read from a collection to test connection
+    console.log('🔍 [ADMIN SDK] Testing collection access: users');
     const testCollection = db.collection('users').limit(1);
-    await testCollection.get();
+    const testSnapshot = await testCollection.get();
+    
+    console.log(`✅ [ADMIN SDK] Health check passed. Test query returned ${testSnapshot.size} documents`);
     return true;
   } catch (error) {
-    console.error('Firebase Admin health check failed:', error);
+    console.error('❌ [ADMIN SDK] Health check failed:', error);
+    console.error('🔍 [ADMIN SDK] Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
     return false;
   }
 };
 
 // Generic CRUD operations using Admin SDK
 export const adminCreateDocument = async (collectionName: string, data: any) => {
+  console.log(`🔥 [ADMIN SDK] Creating document in collection: ${collectionName}`);
+  console.log(`📝 [ADMIN SDK] Document data:`, JSON.stringify(data, null, 2));
+  
   const db = getAdminDB();
   const docRef = await db.collection(collectionName).add({
     ...data,
     created_at: admin.firestore.FieldValue.serverTimestamp(),
     updated_at: admin.firestore.FieldValue.serverTimestamp()
   });
+  
+  console.log(`✅ [ADMIN SDK] Document created successfully with ID: ${docRef.id}`);
   return { id: docRef.id, ...data };
 };
 
 export const adminGetDocument = async (collectionName: string, docId: string) => {
+  console.log(`🔍 [ADMIN SDK] Getting document: ${docId} from collection: ${collectionName}`);
+  
   const db = getAdminDB();
   const docRef = db.collection(collectionName).doc(docId);
   const docSnap = await docRef.get();
   
   if (docSnap.exists) {
-    return { id: docSnap.id, ...convertTimestamps(docSnap.data()) };
+    const data = { id: docSnap.id, ...convertTimestamps(docSnap.data()) };
+    console.log(`✅ [ADMIN SDK] Document found:`, JSON.stringify(data, null, 2));
+    return data;
   }
+  
+  console.log(`❌ [ADMIN SDK] Document not found: ${docId} in collection: ${collectionName}`);
   return null;
 };
 
 export const adminUpdateDocument = async (collectionName: string, docId: string, data: any) => {
+  console.log(`🔄 [ADMIN SDK] Updating document: ${docId} in collection: ${collectionName}`);
+  console.log(`📝 [ADMIN SDK] Update data:`, JSON.stringify(data, null, 2));
+  
   const db = getAdminDB();
   const docRef = db.collection(collectionName).doc(docId);
   await docRef.update({
     ...data,
     updated_at: admin.firestore.FieldValue.serverTimestamp()
   });
+  
+  console.log(`✅ [ADMIN SDK] Document updated successfully: ${docId}`);
   return { id: docId, ...data };
 };
 
 export const adminDeleteDocument = async (collectionName: string, docId: string) => {
+  console.log(`🗑️ [ADMIN SDK] Deleting document: ${docId} from collection: ${collectionName}`);
+  
   const db = getAdminDB();
   const docRef = db.collection(collectionName).doc(docId);
   await docRef.delete();
+  
+  console.log(`✅ [ADMIN SDK] Document deleted successfully: ${docId}`);
   return true;
 };
 
@@ -145,21 +176,29 @@ export const adminGetDocuments = async (
   orderDirection: 'asc' | 'desc' = 'desc', 
   limitCount?: number
 ) => {
+  console.log(`🔍 [ADMIN SDK] Querying collection: ${collectionName}`);
+  console.log(`🔧 [ADMIN SDK] Filters:`, JSON.stringify(filters, null, 2));
+  console.log(`📊 [ADMIN SDK] Order by: ${orderByField} (${orderDirection})`);
+  console.log(`📏 [ADMIN SDK] Limit: ${limitCount || 'none'}`);
+  
   const db = getAdminDB();
   let query: admin.firestore.Query = db.collection(collectionName);
   
   // Apply filters
-  filters.forEach(filter => {
+  filters.forEach((filter, index) => {
+    console.log(`🔍 [ADMIN SDK] Applying filter ${index + 1}: ${filter.field} ${filter.operator} ${filter.value}`);
     query = query.where(filter.field, filter.operator, filter.value);
   });
   
   // Apply ordering
   if (orderByField) {
+    console.log(`📊 [ADMIN SDK] Applying ordering: ${orderByField} ${orderDirection}`);
     query = query.orderBy(orderByField, orderDirection);
   }
   
   // Apply limit
   if (limitCount) {
+    console.log(`📏 [ADMIN SDK] Applying limit: ${limitCount}`);
     query = query.limit(limitCount);
   }
   
@@ -169,6 +208,11 @@ export const adminGetDocuments = async (
   querySnapshot.forEach((doc) => {
     documents.push({ id: doc.id, ...convertTimestamps(doc.data()) });
   });
+  
+  console.log(`✅ [ADMIN SDK] Query completed. Found ${documents.length} documents`);
+  if (documents.length > 0) {
+    console.log(`📄 [ADMIN SDK] Sample document:`, JSON.stringify(documents[0], null, 2));
+  }
   
   return documents;
 };
