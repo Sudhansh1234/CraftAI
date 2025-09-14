@@ -1,6 +1,6 @@
 // Simplified Firebase configuration for Vercel
-const { initializeApp } = require('firebase/app');
-const { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit } = require('firebase/firestore');
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 
 let app = null;
 let db = null;
@@ -192,7 +192,7 @@ const FirebaseModels = {
   }
 };
 
-module.exports = {
+export {
   initializeFirebase,
   isFirebaseConfigured,
   healthCheck,

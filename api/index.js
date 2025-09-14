@@ -1,12 +1,13 @@
-const serverless = require('serverless-http');
-const express = require('express');
-const cors = require('cors');
+import serverless from 'serverless-http';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
 // Load environment variables
-require('dotenv').config({ path: '.env.local' });
+dotenv.config({ path: '.env.local' });
 
 // Import Firebase configuration
-const { initializeFirebase, isFirebaseConfigured, healthCheck, FirebaseModels } = require('./firebase-config');
+import { initializeFirebase, isFirebaseConfigured, healthCheck, FirebaseModels } from './firebase-config.js';
 
 const app = express();
 
@@ -396,4 +397,4 @@ app.get("/api/*", (req, res) => {
 });
 
 // Export the serverless handler
-module.exports = serverless(app);
+export default serverless(app);
