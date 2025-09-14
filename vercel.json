@@ -14,8 +14,7 @@
       "config": {
         "includeFiles": [
           "server/**",
-          "shared/**",
-          "adminkey.json"
+          "shared/**"
         ]
       }
     }

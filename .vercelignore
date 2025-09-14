@@ -1,10 +1,9 @@
-# Environment files
-.env.local
-*.local
+
 
 # Logs
 logs
 *.log
+firebase-debug.log
 
 # Dependencies
 node_modules
@@ -28,3 +27,41 @@ dist-ssr
 # Config files
 .config/
 
+# Development files
+temp/
+*.tmp
+*.temp
+
+# Documentation (keep essential ones)
+!README.md
+!VERCEL_DEPLOYMENT.md
+!FIREBASE_SETUP.md
+!FIRESTORE_SETUP.md
+!VOICE_ASSISTANT_SETUP_COMPLETE.md
+!GOOGLE_CLOUD_SETUP_COMPLETE.md
+!SOCIAL_API_SETUP_GUIDE.md
+!SOCIAL_PLAYGROUND_IMPLEMENTATION.md
+!QUICK_START_IMPLEMENTATION.md
+!AI_FEATURES_IMPLEMENTATION_PLAN.md
+!CONTEXT_SWITCHING_ARCHITECTURE.md
+!LOCALHOST_VOICE_FIX.md
+!VOICE_TROUBLESHOOTING.md
+!TODO.md
+!AGENTS.md
+
+# Test files
+test-*.js
+*.test.js
+*.spec.js
+
+# Other projects
+artify-pathways-main/
+
+# Google Cloud files
+googlecloudjson-fixed.json
+
+# Cloud SQL Proxy
+cloud_sql_proxy.exe
+
+# Seed files
+seed-database.js

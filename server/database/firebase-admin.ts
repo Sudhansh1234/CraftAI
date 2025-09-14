@@ -9,45 +9,76 @@ let adminAuth: admin.auth.Auth | null = null;
 const initializeAdminSDK = () => {
   if (!adminApp) {
     try {
+      console.log('🚀 [FIREBASE ADMIN] Starting initialization...');
+      console.log('🔍 [FIREBASE ADMIN] Environment check:', {
+        FIREBASE_ADMIN_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID ? '✅ Set' : '❌ Not set',
+        FIREBASE_ADMIN_CLIENT_EMAIL: process.env.FIREBASE_ADMIN_CLIENT_EMAIL ? '✅ Set' : '❌ Not set',
+        FIREBASE_ADMIN_PRIVATE_KEY: process.env.FIREBASE_ADMIN_PRIVATE_KEY ? '✅ Set' : '❌ Not set',
+        NODE_ENV: process.env.NODE_ENV || 'undefined'
+      });
+      
       // Use environment variables from .env.local (preferred method)
       if (process.env.FIREBASE_ADMIN_PROJECT_ID && 
           process.env.FIREBASE_ADMIN_PRIVATE_KEY && 
           process.env.FIREBASE_ADMIN_CLIENT_EMAIL) {
         
-        console.log('🔐 Using environment variables for Firebase Admin SDK');
+        console.log('🔐 [FIREBASE ADMIN] Using environment variables for authentication');
+        console.log('📊 [FIREBASE ADMIN] Project ID:', process.env.FIREBASE_ADMIN_PROJECT_ID);
+        console.log('📧 [FIREBASE ADMIN] Client Email:', process.env.FIREBASE_ADMIN_CLIENT_EMAIL);
+        
         const credential = admin.credential.cert({
           projectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
           privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n'),
           clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
         });
         
+        console.log('🔑 [FIREBASE ADMIN] Credential created successfully');
+        
         adminApp = admin.initializeApp({
           credential,
           projectId: process.env.FIREBASE_ADMIN_PROJECT_ID
         });
+        
+        console.log('✅ [FIREBASE ADMIN] App initialized with environment variables');
         
       } else {
         // Fallback to service account key file (for development)
         const serviceAccountPath = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH || 
                                  path.join(process.cwd(), 'adminkey.json');
         
-        console.log('📁 Using service account key file for Firebase Admin SDK:', serviceAccountPath);
+        console.log('📁 [FIREBASE ADMIN] Using service account key file:', serviceAccountPath);
+        console.log('🔍 [FIREBASE ADMIN] Checking if file exists...');
+        
         adminApp = admin.initializeApp({
           credential: admin.credential.cert(serviceAccountPath),
           projectId: 'craft-ai-70b27'
         });
+        
+        console.log('✅ [FIREBASE ADMIN] App initialized with service account file');
       }
       
+      console.log('🔗 [FIREBASE ADMIN] Initializing Firestore...');
       adminDb = admin.firestore();
-      adminAuth = admin.auth();
+      console.log('✅ [FIREBASE ADMIN] Firestore initialized');
       
-      console.log('🔥 Firebase Admin SDK initialized successfully');
-      console.log('📊 Project ID:', adminApp.options.projectId);
+      console.log('🔐 [FIREBASE ADMIN] Initializing Auth...');
+      adminAuth = admin.auth();
+      console.log('✅ [FIREBASE ADMIN] Auth initialized');
+      
+      console.log('🎉 [FIREBASE ADMIN] Firebase Admin SDK initialized successfully!');
+      console.log('📊 [FIREBASE ADMIN] Project ID:', adminApp.options.projectId);
+      console.log('🌍 [FIREBASE ADMIN] Environment:', process.env.NODE_ENV || 'undefined');
       
     } catch (error) {
-      console.error('❌ Failed to initialize Firebase Admin SDK:', error);
+      console.error('❌ [FIREBASE ADMIN] Failed to initialize Firebase Admin SDK');
+      console.error('🔍 [FIREBASE ADMIN] Error type:', error.constructor.name);
+      console.error('📝 [FIREBASE ADMIN] Error message:', error.message);
+      console.error('📚 [FIREBASE ADMIN] Error code:', error.code || 'No code');
+      console.error('📍 [FIREBASE ADMIN] Error stack:', error.stack);
       throw error;
     }
+  } else {
+    console.log('♻️ [FIREBASE ADMIN] Admin SDK already initialized, reusing existing instance');
   }
   
   return { adminApp, adminDb, adminAuth };
@@ -88,85 +119,120 @@ const convertTimestamps = (data: any) => {
 // Health check for Admin SDK
 export const adminHealthCheck = async (): Promise<boolean> => {
   try {
-    console.log('🏥 [ADMIN SDK] Starting health check...');
+    console.log('🏥 [FIREBASE ADMIN] Starting health check...');
+    console.log('🔗 [FIREBASE ADMIN] Getting database connection...');
+    
     const db = getAdminDB();
-    console.log('🔗 [ADMIN SDK] Database connection established');
+    console.log('✅ [FIREBASE ADMIN] Database connection established');
     
     // Try to read from a collection to test connection
-    console.log('🔍 [ADMIN SDK] Testing collection access: users');
+    console.log('🔍 [FIREBASE ADMIN] Testing collection access: users');
     const testCollection = db.collection('users').limit(1);
-    const testSnapshot = await testCollection.get();
+    console.log('📊 [FIREBASE ADMIN] Executing test query...');
     
-    console.log(`✅ [ADMIN SDK] Health check passed. Test query returned ${testSnapshot.size} documents`);
+    const testSnapshot = await testCollection.get();
+    console.log(`✅ [FIREBASE ADMIN] Health check passed. Test query returned ${testSnapshot.size} documents`);
+    
     return true;
   } catch (error) {
-    console.error('❌ [ADMIN SDK] Health check failed:', error);
-    console.error('🔍 [ADMIN SDK] Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
+    console.error('❌ [FIREBASE ADMIN] Health check failed');
+    console.error('🔍 [FIREBASE ADMIN] Error type:', error.constructor.name);
+    console.error('📝 [FIREBASE ADMIN] Error message:', error.message);
+    console.error('📚 [FIREBASE ADMIN] Error code:', error.code || 'No code');
+    console.error('📍 [FIREBASE ADMIN] Error stack:', error.stack);
     return false;
   }
 };
 
 // Generic CRUD operations using Admin SDK
 export const adminCreateDocument = async (collectionName: string, data: any) => {
-  console.log(`🔥 [ADMIN SDK] Creating document in collection: ${collectionName}`);
-  console.log(`📝 [ADMIN SDK] Document data:`, JSON.stringify(data, null, 2));
-  
-  const db = getAdminDB();
-  const docRef = await db.collection(collectionName).add({
-    ...data,
-    created_at: admin.firestore.FieldValue.serverTimestamp(),
-    updated_at: admin.firestore.FieldValue.serverTimestamp()
-  });
-  
-  console.log(`✅ [ADMIN SDK] Document created successfully with ID: ${docRef.id}`);
-  return { id: docRef.id, ...data };
+  try {
+    console.log(`🔥 [FIREBASE ADMIN] Creating document in collection: ${collectionName}`);
+    console.log(`📝 [FIREBASE ADMIN] Document data:`, JSON.stringify(data, null, 2));
+    
+    const db = getAdminDB();
+    console.log('✅ [FIREBASE ADMIN] Database connection obtained');
+    
+    const docRef = await db.collection(collectionName).add({
+      ...data,
+      created_at: admin.firestore.FieldValue.serverTimestamp(),
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`✅ [FIREBASE ADMIN] Document created successfully with ID: ${docRef.id}`);
+    return { id: docRef.id, ...data };
+  } catch (error) {
+    console.error(`❌ [FIREBASE ADMIN] Failed to create document in ${collectionName}`);
+    console.error('🔍 [FIREBASE ADMIN] Error details:', error.message);
+    throw error;
+  }
 };
 
 export const adminGetDocument = async (collectionName: string, docId: string) => {
-  console.log(`🔍 [ADMIN SDK] Getting document: ${docId} from collection: ${collectionName}`);
-  
-  const db = getAdminDB();
-  const docRef = db.collection(collectionName).doc(docId);
-  const docSnap = await docRef.get();
-  
-  if (docSnap.exists) {
-    const data = { id: docSnap.id, ...convertTimestamps(docSnap.data()) };
-    console.log(`✅ [ADMIN SDK] Document found:`, JSON.stringify(data, null, 2));
-    return data;
+  try {
+    console.log(`🔍 [FIREBASE ADMIN] Getting document: ${docId} from collection: ${collectionName}`);
+    
+    const db = getAdminDB();
+    const docRef = db.collection(collectionName).doc(docId);
+    console.log('📊 [FIREBASE ADMIN] Executing get query...');
+    
+    const docSnap = await docRef.get();
+    
+    if (docSnap.exists) {
+      const data = { id: docSnap.id, ...convertTimestamps(docSnap.data()) };
+      console.log(`✅ [FIREBASE ADMIN] Document found:`, JSON.stringify(data, null, 2));
+      return data;
+    }
+    
+    console.log(`❌ [FIREBASE ADMIN] Document not found: ${docId} in collection: ${collectionName}`);
+    return null;
+  } catch (error) {
+    console.error(`❌ [FIREBASE ADMIN] Failed to get document ${docId} from ${collectionName}`);
+    console.error('🔍 [FIREBASE ADMIN] Error details:', error.message);
+    throw error;
   }
-  
-  console.log(`❌ [ADMIN SDK] Document not found: ${docId} in collection: ${collectionName}`);
-  return null;
 };
 
 export const adminUpdateDocument = async (collectionName: string, docId: string, data: any) => {
-  console.log(`🔄 [ADMIN SDK] Updating document: ${docId} in collection: ${collectionName}`);
-  console.log(`📝 [ADMIN SDK] Update data:`, JSON.stringify(data, null, 2));
-  
-  const db = getAdminDB();
-  const docRef = db.collection(collectionName).doc(docId);
-  await docRef.update({
-    ...data,
-    updated_at: admin.firestore.FieldValue.serverTimestamp()
-  });
-  
-  console.log(`✅ [ADMIN SDK] Document updated successfully: ${docId}`);
-  return { id: docId, ...data };
+  try {
+    console.log(`🔄 [FIREBASE ADMIN] Updating document: ${docId} in collection: ${collectionName}`);
+    console.log(`📝 [FIREBASE ADMIN] Update data:`, JSON.stringify(data, null, 2));
+    
+    const db = getAdminDB();
+    const docRef = db.collection(collectionName).doc(docId);
+    console.log('📊 [FIREBASE ADMIN] Executing update query...');
+    
+    await docRef.update({
+      ...data,
+      updated_at: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`✅ [FIREBASE ADMIN] Document updated successfully: ${docId}`);
+    return { id: docId, ...data };
+  } catch (error) {
+    console.error(`❌ [FIREBASE ADMIN] Failed to update document ${docId} in ${collectionName}`);
+    console.error('🔍 [FIREBASE ADMIN] Error details:', error.message);
+    throw error;
+  }
 };
 
 export const adminDeleteDocument = async (collectionName: string, docId: string) => {
-  console.log(`🗑️ [ADMIN SDK] Deleting document: ${docId} from collection: ${collectionName}`);
-  
-  const db = getAdminDB();
-  const docRef = db.collection(collectionName).doc(docId);
-  await docRef.delete();
-  
-  console.log(`✅ [ADMIN SDK] Document deleted successfully: ${docId}`);
-  return true;
+  try {
+    console.log(`🗑️ [FIREBASE ADMIN] Deleting document: ${docId} from collection: ${collectionName}`);
+    
+    const db = getAdminDB();
+    const docRef = db.collection(collectionName).doc(docId);
+    console.log('📊 [FIREBASE ADMIN] Executing delete query...');
+    
+    await docRef.delete();
+    
+    console.log(`✅ [FIREBASE ADMIN] Document deleted successfully: ${docId}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ [FIREBASE ADMIN] Failed to delete document ${docId} from ${collectionName}`);
+    console.error('🔍 [FIREBASE ADMIN] Error details:', error.message);
+    throw error;
+  }
 };
 
 export const adminGetDocuments = async (
@@ -176,45 +242,52 @@ export const adminGetDocuments = async (
   orderDirection: 'asc' | 'desc' = 'desc', 
   limitCount?: number
 ) => {
-  console.log(`🔍 [ADMIN SDK] Querying collection: ${collectionName}`);
-  console.log(`🔧 [ADMIN SDK] Filters:`, JSON.stringify(filters, null, 2));
-  console.log(`📊 [ADMIN SDK] Order by: ${orderByField} (${orderDirection})`);
-  console.log(`📏 [ADMIN SDK] Limit: ${limitCount || 'none'}`);
-  
-  const db = getAdminDB();
-  let query: admin.firestore.Query = db.collection(collectionName);
-  
-  // Apply filters
-  filters.forEach((filter, index) => {
-    console.log(`🔍 [ADMIN SDK] Applying filter ${index + 1}: ${filter.field} ${filter.operator} ${filter.value}`);
-    query = query.where(filter.field, filter.operator, filter.value);
-  });
-  
-  // Apply ordering
-  if (orderByField) {
-    console.log(`📊 [ADMIN SDK] Applying ordering: ${orderByField} ${orderDirection}`);
-    query = query.orderBy(orderByField, orderDirection);
+  try {
+    console.log(`🔍 [FIREBASE ADMIN] Querying collection: ${collectionName}`);
+    console.log(`🔧 [FIREBASE ADMIN] Filters:`, JSON.stringify(filters, null, 2));
+    console.log(`📊 [FIREBASE ADMIN] Order by: ${orderByField} (${orderDirection})`);
+    console.log(`📏 [FIREBASE ADMIN] Limit: ${limitCount || 'none'}`);
+    
+    const db = getAdminDB();
+    let query: admin.firestore.Query = db.collection(collectionName);
+    
+    // Apply filters
+    filters.forEach((filter, index) => {
+      console.log(`🔍 [FIREBASE ADMIN] Applying filter ${index + 1}: ${filter.field} ${filter.operator} ${filter.value}`);
+      query = query.where(filter.field, filter.operator, filter.value);
+    });
+    
+    // Apply ordering
+    if (orderByField) {
+      console.log(`📊 [FIREBASE ADMIN] Applying ordering: ${orderByField} ${orderDirection}`);
+      query = query.orderBy(orderByField, orderDirection);
+    }
+    
+    // Apply limit
+    if (limitCount) {
+      console.log(`📏 [FIREBASE ADMIN] Applying limit: ${limitCount}`);
+      query = query.limit(limitCount);
+    }
+    
+    console.log('📊 [FIREBASE ADMIN] Executing query...');
+    const querySnapshot = await query.get();
+    const documents: any[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      documents.push({ id: doc.id, ...convertTimestamps(doc.data()) });
+    });
+    
+    console.log(`✅ [FIREBASE ADMIN] Query completed. Found ${documents.length} documents`);
+    if (documents.length > 0) {
+      console.log(`📄 [FIREBASE ADMIN] Sample document:`, JSON.stringify(documents[0], null, 2));
+    }
+    
+    return documents;
+  } catch (error) {
+    console.error(`❌ [FIREBASE ADMIN] Failed to query collection ${collectionName}`);
+    console.error('🔍 [FIREBASE ADMIN] Error details:', error.message);
+    throw error;
   }
-  
-  // Apply limit
-  if (limitCount) {
-    console.log(`📏 [ADMIN SDK] Applying limit: ${limitCount}`);
-    query = query.limit(limitCount);
-  }
-  
-  const querySnapshot = await query.get();
-  const documents: any[] = [];
-  
-  querySnapshot.forEach((doc) => {
-    documents.push({ id: doc.id, ...convertTimestamps(doc.data()) });
-  });
-  
-  console.log(`✅ [ADMIN SDK] Query completed. Found ${documents.length} documents`);
-  if (documents.length > 0) {
-    console.log(`📄 [ADMIN SDK] Sample document:`, JSON.stringify(documents[0], null, 2));
-  }
-  
-  return documents;
 };
 
 // Admin SDK Models (same interface as client SDK but with elevated privileges)
