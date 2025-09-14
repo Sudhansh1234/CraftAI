@@ -9,20 +9,14 @@
       }
     },
     {
-      "src": "server/index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "server/**",
-          "shared/**"
-        ]
-      }
+      "src": "api/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server/index.ts"
+      "dest": "/api/index.ts"
     },
     {
       "src": "/assets/(.*)",
@@ -37,7 +31,9 @@
       "dest": "/index.html"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
+  "functions": {
+    "api/index.ts": {
+      "maxDuration": 60
+    }
   }
 }

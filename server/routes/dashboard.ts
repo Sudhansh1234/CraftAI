@@ -1,6 +1,5 @@
 import { RequestHandler, Request, Response, NextFunction } from 'express';
 import { createUserData } from '../database/firebase-seed';
-import { AdminFirebaseModels, adminHealthCheck } from '../database/firebase-admin';
 
 // Extend Request interface to include userId
 interface AuthenticatedRequest extends Request {
@@ -33,16 +32,13 @@ export const extractUserId = (req: AuthenticatedRequest, res: Response, next: Ne
 // Get dashboard data for a user
 export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest, res) => {
   try {
-    console.log('📊 [DASHBOARD] API called for user:', req.params.userId);
-    console.log('🔧 [DASHBOARD] Request headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Dashboard API called for user:', req.params.userId);
     
-    // Use Admin SDK for elevated privileges
-    const FirebaseModels = AdminFirebaseModels;
-    console.log('🔥 [DASHBOARD] Using Firebase Admin SDK for elevated privileges');
+    // Lazy import Firebase modules after environment variables are loaded
+    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
     
     // Get user ID from the request (set by middleware)
     const userId = req.userId || '00000000-0000-0000-0000-000000000001';
-    console.log('👤 [DASHBOARD] Processing request for user ID:', userId);
 
     // Simple quota check - for demo purposes, simulate quota exceeded for certain users
     const isQuotaExceeded = userId === 'quota-exceeded-user' || Math.random() < 0.1; // 10% chance for demo
@@ -54,13 +50,11 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
       });
     }
     
-    // Check if Firebase Admin SDK is healthy
-    console.log('🏥 [DASHBOARD] Checking Firebase Admin SDK health...');
-    const isHealthy = await adminHealthCheck();
-    console.log('🏥 [DASHBOARD] Firebase Admin SDK health check result:', isHealthy);
+    // Check if Firebase is configured and accessible
+    console.log('Firebase configured:', isFirebaseConfigured());
     
-    if (!isHealthy) {
-      console.log('❌ [DASHBOARD] Firebase Admin SDK not healthy, returning empty data');
+    if (!isFirebaseConfigured()) {
+      console.log('Firebase not configured, returning empty data');
       const emptyData = {
         insights: [],
         summary: {
@@ -81,39 +75,55 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
           competitorInsights: []
         }
       };
-      console.log('📤 [DASHBOARD] Returning empty data due to health check failure');
+      return res.json(emptyData);
+    }
+    
+    const isHealthy = await healthCheck();
+    console.log('Firebase health check:', isHealthy);
+    
+    if (!isHealthy) {
+      console.log('Firebase not healthy, returning empty data');
+      const emptyData = {
+        insights: [],
+        summary: {
+          totalInsights: 0,
+          highPriorityCount: 0,
+          actionableCount: 0,
+          weeklyGrowth: 0,
+          topCategories: []
+        },
+        recommendations: {
+          immediate: [],
+          shortTerm: [],
+          longTerm: []
+        },
+        marketTrends: {
+          trendingProducts: [],
+          seasonalOpportunities: [],
+          competitorInsights: []
+        }
+      };
       return res.json(emptyData);
     }
     
     // Try to get data from separate collections first, fallback to business_metrics
-    console.log('📊 [DASHBOARD] Fetching data from Firebase collections...');
     let products = [];
     let sales = [];
     let businessMetrics = [];
     
     try {
-      console.log('🛍️ [DASHBOARD] Fetching products for user:', userId);
       products = await FirebaseModels.products.findByUserId(userId);
-      console.log(`🛍️ [DASHBOARD] Found ${products.length} products`);
-      
-      console.log('💰 [DASHBOARD] Fetching sales for user:', userId);
       sales = await FirebaseModels.sales.findByUserId(userId);
-      console.log(`💰 [DASHBOARD] Found ${sales.length} sales records`);
       
       // Combine all data for backward compatibility
       businessMetrics = [
         ...products.map(p => ({ ...p, metric_type: 'products' })),
         ...sales.map(s => ({ ...s, metric_type: 'sales' }))
       ];
-      console.log(`📊 [DASHBOARD] Combined metrics: ${businessMetrics.length} total records`);
     } catch (error) {
-      console.log('⚠️ [DASHBOARD] Error fetching from separate collections, falling back to business_metrics');
-      console.error('🔍 [DASHBOARD] Error details:', error.message);
       
       // Fallback to business_metrics collection
-      console.log('📊 [DASHBOARD] Fetching from business_metrics collection...');
       businessMetrics = await FirebaseModels.businessMetrics.findByUserId(userId);
-      console.log(`📊 [DASHBOARD] Found ${businessMetrics.length} business metrics`);
     }
     
     // Get existing insights from stored metrics (no auto-generation)
@@ -452,53 +462,33 @@ export const testEndpoint: RequestHandler = async (req, res) => {
   }
 };
 
-// Firebase Admin SDK connection test endpoint
+// Firebase connection test endpoint
 export const testFirebaseConnection: RequestHandler = async (req, res) => {
   try {
-    console.log('🧪 [TEST] Firebase Admin SDK connection test started');
-    console.log('🔧 [TEST] Request details:', {
-      method: req.method,
-      url: req.url,
-      headers: req.headers
-    });
-    
-    const FirebaseModels = AdminFirebaseModels;
-    console.log('🔥 [TEST] Admin SDK models loaded');
+    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
     
     const config = {
-      FIREBASE_PROJECT_ID: process.env.FIREBASE_ADMIN_PROJECT_ID || 'craft-ai-70b27',
-      SERVICE_ACCOUNT: process.env.FIREBASE_ADMIN_CLIENT_EMAIL || 'firebase-adminsdk-fbsvc@craft-ai-70b27.iam.gserviceaccount.com',
-      ADMIN_SDK: 'Initialized',
-      AUTH_METHOD: process.env.FIREBASE_ADMIN_PROJECT_ID ? 'Environment Variables' : 'Service Account Key File'
+      FIREBASE_API_KEY: process.env.FIREBASE_API_KEY ? 'Set' : 'Not set',
+      FIREBASE_AUTH_DOMAIN: process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set',
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set',
+      FIREBASE_STORAGE_BUCKET: process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set',
+      FIREBASE_MESSAGING_SENDER_ID: process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set',
+      FIREBASE_APP_ID: process.env.FIREBASE_APP_ID ? 'Set' : 'Not set'
     };
     
-    console.log('⚙️ [TEST] Configuration:', JSON.stringify(config, null, 2));
+    const isConfigured = isFirebaseConfigured();
+    const isHealthy = isConfigured ? await healthCheck() : false;
     
-    console.log('🏥 [TEST] Running health check...');
-    const isHealthy = await adminHealthCheck();
-    console.log('🏥 [TEST] Health check result:', isHealthy);
-    
-    const response = {
-      message: 'Firebase Admin SDK connection test',
+    res.json({
+      message: 'Firebase connection test',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       config,
-      isConfigured: true, // Admin SDK is always configured if it loads
+      isConfigured,
       isHealthy,
-      error: isHealthy ? null : 'Firebase Admin SDK connection failed'
-    };
-    
-    console.log('✅ [TEST] Test completed successfully');
-    console.log('📤 [TEST] Response:', JSON.stringify(response, null, 2));
-    
-    res.json(response);
-  } catch (error) {
-    console.error('❌ [TEST] Firebase test failed:', error);
-    console.error('🔍 [TEST] Error details:', {
-      message: error.message,
-      stack: error.stack
+      error: isHealthy ? null : 'Firebase connection failed'
     });
-    
+  } catch (error) {
     res.status(500).json({ 
       error: 'Firebase test failed', 
       details: error.message,

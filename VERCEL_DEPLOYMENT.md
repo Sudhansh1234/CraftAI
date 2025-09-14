@@ -25,7 +25,7 @@ git push origin main
    - **Framework Preset**: Other
    - **Root Directory**: `./` (root of project)
    - **Build Command**: `npm run build:vercel`
-   - **Output Directory**: `client/dist`
+   - **Output Directory**: `dist/spa`
    - **Install Command**: `npm install`
 
 #### **Option B: Vercel CLI**
@@ -69,9 +69,16 @@ IMAGEN_MODEL_ID=imagen-4.0-generate-001
 
 Vercel will automatically:
 - Build your React frontend from `client/` directory
-- Deploy your Express backend as serverless functions
-- Route `/api/*` requests to your backend
+- Deploy your Express backend as serverless functions via `api/index.ts`
+- Route `/api/*` requests to your backend serverless function
 - Serve static files from your frontend build
+
+#### **Serverless Function Setup**
+The project includes a proper Vercel serverless function setup:
+- `api/index.ts` - Entry point for all API routes
+- Uses `serverless-http` to wrap the Express app
+- Configured with 60-second timeout for AI operations
+- All API routes are automatically routed through this function
 
 ### **5. Custom Domain (Optional)**
 1. Go to Project Settings → Domains

@@ -1,67 +1,63 @@
+# Dependencies
+node_modules/
+.pnpm-store/
 
+# Build outputs
+dist/
+build/
 
-# Logs
-logs
+# Development files
+.env.local
+.env.development
+.env.test
 *.log
 firebase-debug.log
 
-# Dependencies
-node_modules
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Build outputs
-dist
-dist-ssr
-
-# Editor files
-.vscode/*
-.idea
+# OS generated files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# OS files
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Git
+.git/
+.gitignore
 
-# Config files
-.config/
+# Documentation
+*.md
+docs/
 
-# Development files
+# Temporary files
 temp/
+tmp/
 *.tmp
-*.temp
 
-# Documentation (keep essential ones)
-!README.md
-!VERCEL_DEPLOYMENT.md
-!FIREBASE_SETUP.md
-!FIRESTORE_SETUP.md
-!VOICE_ASSISTANT_SETUP_COMPLETE.md
-!GOOGLE_CLOUD_SETUP_COMPLETE.md
-!SOCIAL_API_SETUP_GUIDE.md
-!SOCIAL_PLAYGROUND_IMPLEMENTATION.md
-!QUICK_START_IMPLEMENTATION.md
-!AI_FEATURES_IMPLEMENTATION_PLAN.md
-!CONTEXT_SWITCHING_ARCHITECTURE.md
-!LOCALHOST_VOICE_FIX.md
-!VOICE_TROUBLESHOOTING.md
-!TODO.md
-!AGENTS.md
-
-# Test files
-test-*.js
-*.test.js
-*.spec.js
-
-# Other projects
-artify-pathways-main/
-
-# Google Cloud files
+# Server files (not needed for Vercel)
+server/
+cloud_sql_proxy.exe
 googlecloudjson-fixed.json
 
-# Cloud SQL Proxy
-cloud_sql_proxy.exe
+# Netlify specific
+netlify/
+netlify.toml
 
-# Seed files
-seed-database.js
+# Vercel specific
+.vercel/
+
+# Test files
+*.spec.ts
+*.test.ts
+__tests__/
+
+# Other config files
+.env.template

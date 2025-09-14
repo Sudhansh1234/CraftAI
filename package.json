@@ -21,10 +21,7 @@
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
     "format.fix": "prettier --write .",
-    "typecheck": "tsc",
-    "vercel:deploy": "vercel --prod",
-    "vercel:dev": "vercel dev",
-    "vercel:logs": "vercel logs --follow"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@firebase/analytics": "^0.10.18",
