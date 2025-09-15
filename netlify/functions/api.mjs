@@ -893,17 +893,21 @@ app.post("/api/questionnaire/generate-flow", async (req, res) => {
       answerCount: Object.keys(answers).length
     });
 
-    // Import Google Cloud Vertex AI
+    // Import Google Cloud Vertex AI and Google Auth
     const { VertexAI } = await import('@google-cloud/vertexai');
+    const { GoogleAuth } = await import('google-auth-library');
+    
+    // Force unset GOOGLE_APPLICATION_CREDENTIALS to prevent JSON file lookup
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     
     // Debug: Check available credentials
     console.log('🔐 Checking Google Cloud credentials...');
     console.log('  - GOOGLE_CLOUD_PROJECT_ID:', !!process.env.GOOGLE_CLOUD_PROJECT_ID);
     console.log('  - GOOGLE_CLOUD_CLIENT_EMAIL:', !!process.env.GOOGLE_CLOUD_CLIENT_EMAIL);
     console.log('  - GOOGLE_CLOUD_PRIVATE_KEY:', !!process.env.GOOGLE_CLOUD_PRIVATE_KEY);
-    console.log('  - GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    console.log('  - GOOGLE_APPLICATION_CREDENTIALS (should be undefined):', process.env.GOOGLE_APPLICATION_CREDENTIALS);
 
-    // Create credentials object from environment variables
+    // Create credentials object from environment variables - using exact Google Cloud format
     const credentials = {
       type: "service_account",
       project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
@@ -911,18 +915,29 @@ app.post("/api/questionnaire/generate-flow", async (req, res) => {
       private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
       client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI,
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL,
       client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
-      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || "googleapis.com"
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN
     };
+
+    console.log('🔑 Using explicit credentials for Vertex AI...');
+    console.log('  - Project ID:', credentials.project_id);
+    console.log('  - Client Email:', credentials.client_email);
+    console.log('  - Has Private Key:', !!credentials.private_key);
+
+    // Create Google Auth client with explicit credentials
+    const auth = new GoogleAuth({
+      credentials: credentials,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
     
     const vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID,
       location: 'us-central1',
       googleAuthOptions: {
-        credentials: credentials
+        authClient: await auth.getClient()
       }
     });
 
@@ -1148,17 +1163,21 @@ app.post("/api/social/generate-post", async (req, res) => {
       hasImage: !!productImage 
     });
 
-    // Import Google Cloud Vertex AI
+    // Import Google Cloud Vertex AI and Google Auth
     const { VertexAI } = await import('@google-cloud/vertexai');
+    const { GoogleAuth } = await import('google-auth-library');
+    
+    // Force unset GOOGLE_APPLICATION_CREDENTIALS to prevent JSON file lookup
+    delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
     
     // Debug: Check available credentials
     console.log('🔐 Checking Google Cloud credentials...');
     console.log('  - GOOGLE_CLOUD_PROJECT_ID:', !!process.env.GOOGLE_CLOUD_PROJECT_ID);
     console.log('  - GOOGLE_CLOUD_CLIENT_EMAIL:', !!process.env.GOOGLE_CLOUD_CLIENT_EMAIL);
     console.log('  - GOOGLE_CLOUD_PRIVATE_KEY:', !!process.env.GOOGLE_CLOUD_PRIVATE_KEY);
-    console.log('  - GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    console.log('  - GOOGLE_APPLICATION_CREDENTIALS (should be undefined):', process.env.GOOGLE_APPLICATION_CREDENTIALS);
 
-    // Create credentials object from environment variables
+    // Create credentials object from environment variables - using exact Google Cloud format
     const credentials = {
       type: "service_account",
       project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
@@ -1166,18 +1185,29 @@ app.post("/api/social/generate-post", async (req, res) => {
       private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
       client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
       client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
-      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI,
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL,
       client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
-      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || "googleapis.com"
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN
     };
+
+    console.log('🔑 Using explicit credentials for Vertex AI...');
+    console.log('  - Project ID:', credentials.project_id);
+    console.log('  - Client Email:', credentials.client_email);
+    console.log('  - Has Private Key:', !!credentials.private_key);
+
+    // Create Google Auth client with explicit credentials
+    const auth = new GoogleAuth({
+      credentials: credentials,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
     
     const vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID,
       location: 'us-central1',
       googleAuthOptions: {
-        credentials: credentials
+        authClient: await auth.getClient()
       }
     });
 

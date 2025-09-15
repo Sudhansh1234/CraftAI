@@ -75,6 +75,7 @@
     "finalhandler": "^1.3.1",
     "firebase": "^9.23.0",
     "forwarded": "^0.2.0",
+    "google-auth-library": "^9.14.1",
     "fresh": "^0.5.2",
     "helmet": "^7.1.0",
     "http-errors": "^2.0.0",

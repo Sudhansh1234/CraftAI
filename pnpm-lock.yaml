@@ -158,6 +158,9 @@ importers:
       fresh:
         specifier: ^0.5.2
         version: 0.5.2
+      google-auth-library:
+        specifier: ^9.14.1
+        version: 9.15.1
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
