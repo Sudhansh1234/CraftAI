@@ -27,3 +27,6 @@ dist-ssr
 
 # Config files
 .config/
+
+# Server files (not serverless functions)
+api/server/

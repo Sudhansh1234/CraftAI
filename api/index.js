@@ -1,4 +1,5 @@
-// Vercel API entry point
+// Vercel API entry point - Single serverless function
+// This file handles ALL API routes to stay within the 12 function limit
 import serverless from 'serverless-http';
 import express from 'express';
 import cors from 'cors';
