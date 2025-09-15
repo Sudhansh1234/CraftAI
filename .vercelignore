@@ -1,3 +1,6 @@
+# Environment files
+.env.local
+*.local
 
 # Logs
 logs
@@ -24,4 +27,3 @@ dist-ssr
 
 # Config files
 .config/
-
