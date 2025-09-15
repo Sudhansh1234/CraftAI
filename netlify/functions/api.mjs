@@ -406,7 +406,10 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       productName: metricData.productName,
       value: metricData.value,
       sellingPrice: metricData.sellingPrice,
-      quantity: metricData.quantity
+      materialCost: metricData.materialCost,
+      quantity: metricData.quantity,
+      date: metricData.date,
+      price: metricData.price
     });
 
     if (!metricData.metricType) {
@@ -416,24 +419,34 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       });
     }
 
-    // More specific validation based on metric type
+    // More specific validation based on metric type (matching server logic)
     if (metricData.metricType === 'products') {
-      if (!metricData.productName || !metricData.sellingPrice || isNaN(parseFloat(metricData.sellingPrice))) {
+      // For products, we need productName and either sellingPrice or value
+      if (!metricData.productName) {
         return res.status(400).json({ 
           success: false,
-          error: 'Missing or invalid product data (productName, sellingPrice required)' 
+          error: 'Product name is required' 
+        });
+      }
+      // Check if we have a valid selling price (either sellingPrice or value)
+      const sellingPrice = metricData.sellingPrice || metricData.value;
+      if (!sellingPrice || isNaN(parseFloat(sellingPrice))) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Valid selling price is required' 
         });
       }
     } else if (metricData.metricType === 'sales') {
-      if (!metricData.productName || !metricData.quantity || !metricData.value) {
+      // For sales, validate required fields (matching server validation)
+      if (!metricData.productName || !metricData.quantity || metricData.quantity <= 0) {
         return res.status(400).json({ 
           success: false,
-          error: 'Missing sales data (productName, quantity, value required)' 
+          error: 'Product name and valid quantity are required for sales' 
         });
       }
     } else {
       // For other metric types, require value
-      if (!metricData.value) {
+      if (metricData.value === undefined) {
         return res.status(400).json({ 
           success: false,
           error: 'Missing value for metric type: ' + metricData.metricType 
@@ -459,10 +472,11 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       collectionName = 'products';
       const productData = {
         user_id: userId,
-        product_name: metricData.productName,
-        material_cost: metricData.materialCost || 0,
-        selling_price: metricData.sellingPrice || metricData.value,
-        quantity: metricData.quantity || 0,
+        product_name: metricData.productName || '',
+        material_cost: metricData.materialCost ? parseFloat(metricData.materialCost) : 0,
+        selling_price: metricData.sellingPrice ? parseFloat(metricData.sellingPrice) : (metricData.value ? parseFloat(metricData.value) : 0),
+        quantity: metricData.quantity ? parseInt(metricData.quantity) : 0,
+        added_date: metricData.date || new Date().toISOString().split('T')[0],
         created_at: serverTimestamp(),
         updated_at: serverTimestamp()
       };
@@ -470,14 +484,13 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       docRef = await addDoc(collection(firestore, collectionName), productData);
       
     } else if (metricData.metricType === 'sales') {
-      // Save to sales collection
+      // Save to sales collection (matching server logic)
       collectionName = 'sales';
       const saleData = {
         user_id: userId,
-        product_name: metricData.productName,
-        quantity: metricData.quantity || 0,
-        price_per_unit: metricData.price || 0,
-        total_value: metricData.value,
+        product_name: metricData.productName || '',
+        quantity: metricData.quantity ? parseInt(metricData.quantity) : 0,
+        price_per_unit: metricData.price ? parseFloat(metricData.price) : 0,
         sale_date: metricData.date || new Date().toISOString().split('T')[0],
         created_at: serverTimestamp(),
         updated_at: serverTimestamp()
@@ -702,10 +715,21 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
     const userId = req.params.userId;
     const flowData = req.body;
 
-    if (!flowData.title && !flowData.nodes) {
+    console.log('📝 Business flow save request data:', {
+      userId,
+      title: flowData.title,
+      nodesCount: flowData.nodes?.length || 0,
+      edgesCount: flowData.edges?.length || 0,
+      userLocation: flowData.userLocation,
+      craftType: flowData.craftType,
+      language: flowData.language
+    });
+
+    // Validate required fields (matching server validation)
+    if (!flowData.title || !flowData.title.trim()) {
       return res.status(400).json({ 
         success: false,
-        error: 'Missing required flow data (title or nodes)' 
+        error: 'Plan title is required' 
       });
     }
 
@@ -722,14 +746,26 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
     console.log('📦 Using Firebase Client SDK for save business flow...');
     const { collection, addDoc, getDocs, query, where, orderBy, limit, updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
 
-    // Check if user already has a business flow
-    const existingSnapshot = await getDocs(query(
+    // Check for duplicate plan names (matching server logic)
+    const existingFlowsSnapshot = await getDocs(query(
       collection(firestore, 'business_flow'),
-      where('user_id', '==', userId),
-      orderBy('created_at', 'desc'),
-      limit(1)
+      where('user_id', '==', userId)
     ));
+    
+    const existingFlows = existingFlowsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const duplicateName = existingFlows.find(flow => 
+      flow.title && flow.title.toLowerCase().trim() === flowData.title.toLowerCase().trim()
+    );
 
+    if (duplicateName) {
+      return res.status(400).json({
+        success: false,
+        error: 'A plan with this name already exists',
+        message: 'Please choose a different name for your business plan'
+      });
+    }
+
+    // Create new business flow (always create new, don't update existing - matching server)
     const businessFlowData = {
       user_id: userId,
       title: flowData.title || 'Business Flow',
@@ -738,33 +774,21 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
       userLocation: flowData.userLocation || null,
       craftType: flowData.craftType || null,
       language: flowData.language || 'en',
+      created_at: serverTimestamp(),
       updated_at: serverTimestamp()
     };
 
-    let docRef;
-    let operation;
-
-    if (!existingSnapshot.empty) {
-      // Update existing business flow
-      const existingDoc = existingSnapshot.docs[0];
-      docRef = doc(firestore, 'business_flow', existingDoc.id);
-      await updateDoc(docRef, businessFlowData);
-      operation = 'updated';
-      console.log('✅ Business flow updated with ID:', existingDoc.id);
-    } else {
-      // Create new business flow
-      businessFlowData.created_at = serverTimestamp();
-      docRef = await addDoc(collection(firestore, 'business_flow'), businessFlowData);
-      operation = 'created';
-      console.log('✅ Business flow created with ID:', docRef.id);
-    }
+    console.log('💾 Creating new business flow:', businessFlowData);
+    const docRef = await addDoc(collection(firestore, 'business_flow'), businessFlowData);
+    console.log('✅ Business flow created with ID:', docRef.id);
 
     res.status(200).json({
       success: true,
-      message: `Business flow ${operation} successfully`,
-      id: docRef.id || existingSnapshot.docs[0].id,
-      userId: userId,
-      operation: operation,
+      message: 'Business flow saved successfully',
+      data: {
+        id: docRef.id,
+        ...businessFlowData
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
