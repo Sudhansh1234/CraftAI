@@ -856,15 +856,382 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
   }
 });
 
+// Questionnaire generate-flow endpoint
+app.post("/api/questionnaire/generate-flow", async (req, res) => {
+  console.log('🤖 Questionnaire generate-flow endpoint called');
+  
+  try {
+    let requestData = req.body;
+
+    // Handle Buffer parsing
+    if (Buffer.isBuffer(requestData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        requestData = JSON.parse(requestData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
+
+    const { answers } = requestData;
+
+    if (!answers) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing answers in request body'
+      });
+    }
+
+    console.log('📝 Generating flow for answers:', {
+      craft: answers.craft,
+      location: answers.location,
+      answerCount: Object.keys(answers).length
+    });
+
+    // Import Google Cloud Vertex AI
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    
+    const vertexAI = new VertexAI({
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      location: 'us-central1',
+    });
+
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: {
+        maxOutputTokens: 3000,
+        temperature: 0.7,
+        topP: 0.9,
+      },
+    });
+
+    // Create comprehensive prompt for flow generation
+    const prompt = `You are ArtisAI, an AI assistant for Indian artisans. You are now in FLOW GENERATION MODE.
+
+Context: Flow Generation Mode
+- Read the user's answers below
+- Build a business flowchart that shows the artisan's journey
+- Output in JSON with "nodes" and "edges"
+- Each node must have the exact structure specified
+- Do not add explanations, only return JSON
+
+User Profile:
+${JSON.stringify(answers, null, 2)}
+
+Required JSON Structure:
+{
+  "nodes": [
+    {
+      "id": "string",
+      "title": "string", 
+      "description": "string",
+      "detailedExplanation": "string - comprehensive explanation with specific steps, tips, and actionable advice for this artisan",
+      "type": "milestone|action|resource",
+      "quickActions": ["list of dynamic quick action suggestions"],
+      "children": ["list of child node ids"]
+    }
+  ],
+  "edges": [
+    {"from": "string", "to": "string"}
+  ]
+}
+
+Node Requirements:
+- Create 6-10 nodes specific to this artisan's craft, location, and challenges
+- Use only these node types: milestone, action, resource
+- Each node must have actionable quickActions
+- Connect nodes logically with edges
+- Focus on Indian artisan business journey
+- Each detailedExplanation should be formatted as bullet points with:
+  - Specific steps and actionable advice (use - for each point)
+  - Location-specific tips for ${answers.location || 'India'}
+  - Local market insights and cultural context for ${answers.location || 'India'}
+  - Regional suppliers, markets, and business opportunities
+  - Local festivals, seasons, and events relevant to ${answers.craft || 'handicrafts'}
+  - Regional pricing strategies and customer preferences
+  - Local government schemes, grants, or support programs
+  - Location-specific marketing channels and platforms
+  - Practical implementation guidance for ${answers.location || 'India'}
+  - Common challenges and how to overcome them locally
+  - ArtisAI service suggestions where relevant (AI Image Generator, Marketing Assistant, Video Generator, etc.)
+  - Format: Use bullet points (-) for each actionable item
+  - Structure: 8-12 bullet points covering all aspects
+
+CRITICAL FORMATTING RULES FOR detailedExplanation:
+- Use ONLY dash (-) for bullet points, NO asterisks (*) anywhere
+- NO markdown formatting like **bold** or *italic*
+- NO special characters except dashes for bullets
+- Each line should start with a dash and space: "- Your content here"
+- Do not use any other formatting symbols
+- Example: "- This is a proper bullet point" NOT "* This is wrong"
+
+Craft Context:
+- Craft type: ${answers.craft || 'handicrafts'}
+- Location: ${answers.location || 'India'}
+- Experience: ${answers.experience || 'beginner'}
+- Goals: ${answers.goal || 'grow business'}
+
+Generate a comprehensive business flow for this specific artisan profile.`;
+
+    console.log('🤖 Calling Vertex AI to generate flow...');
+    const response = await model.generateContent(prompt);
+    
+    // Handle different response structures
+    let text;
+    if (typeof response.text === 'function') {
+      text = response.text().trim();
+    } else if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      text = response.candidates[0].content.parts[0].text.trim();
+    } else if (response.text) {
+      text = response.text.trim();
+    } else {
+      console.error('Unexpected response structure:', response);
+      throw new Error('Unexpected response structure from Gemini');
+    }
+
+    // Clean up any remaining markdown formatting
+    text = text
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold**
+      .replace(/\*([^*]+)\*/g, '$1') // Remove *italic*
+      .replace(/^\s*\*\s+/gm, '- ') // Replace * with - at start of lines
+      .replace(/^\s*•\s+/gm, '- ') // Replace • with - at start of lines
+      .replace(/\n\s*\n/g, '\n') // Remove extra blank lines
+      .trim();
+
+    // Clean up the response
+    const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    let flowData;
+    try {
+      flowData = JSON.parse(cleanedText);
+      console.log('✅ Successfully parsed AI-generated flow');
+    } catch (parseError) {
+      console.error('❌ Error parsing Gemini flow response:', parseError);
+      console.error('Raw response:', cleanedText);
+      
+      // Return error instead of fallback
+      return res.status(500).json({ 
+        error: 'Failed to parse AI response',
+        message: 'Unable to create your personalized business roadmap. Please try again later.',
+        details: parseError.message
+      });
+    }
+
+    // Basic validation
+    if (!flowData.nodes || !Array.isArray(flowData.nodes)) {
+      flowData.nodes = [];
+    }
+    if (!flowData.edges || !Array.isArray(flowData.edges)) {
+      flowData.edges = [];
+    }
+
+    console.log('✅ Flow generated successfully:', {
+      nodesCount: flowData.nodes.length,
+      edgesCount: flowData.edges.length
+    });
+
+    res.json(flowData);
+  } catch (error) {
+    console.error('❌ Error generating flow:', error);
+    
+    res.status(500).json({ 
+      error: 'Failed to generate business flow',
+      message: 'Unable to create your personalized business roadmap. Please try again later.',
+      details: error.message
+    });
+  }
+});
+
 // Social platforms endpoint
 app.get("/api/social/platforms", (req, res) => {
   console.log('📱 Social platforms endpoint called');
-  res.json([
-    { id: 'instagram', name: 'Instagram', enabled: false },
-    { id: 'facebook', name: 'Facebook', enabled: false },
-    { id: 'twitter', name: 'Twitter', enabled: false }
-  ]);
-  console.log('✅ Social platforms response sent');
+  
+  try {
+    const platforms = [
+      {
+        id: 'instagram',
+        name: 'Instagram',
+        description: 'Visual content with hashtags and stories',
+        icon: '📸',
+        color: '#E4405F'
+      },
+      {
+        id: 'facebook',
+        name: 'Facebook',
+        description: 'Community-focused posts with detailed descriptions',
+        icon: '👥',
+        color: '#1877F2'
+      },
+      {
+        id: 'twitter',
+        name: 'X (Twitter)',
+        description: 'Concise posts with trending hashtags',
+        icon: '🐦',
+        color: '#1DA1F2'
+      }
+    ];
+
+    res.json({ platforms });
+    console.log('✅ Social platforms response sent');
+  } catch (error) {
+    console.error('❌ Error getting platforms:', error);
+    res.status(500).json({ 
+      error: "Failed to get platforms",
+      details: error.message
+    });
+  }
+});
+
+// Social generate-post endpoint
+app.post("/api/social/generate-post", async (req, res) => {
+  console.log('🎨 Social generate-post endpoint called');
+  
+  try {
+    let requestData = req.body;
+
+    // Handle Buffer parsing
+    if (Buffer.isBuffer(requestData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        requestData = JSON.parse(requestData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
+
+    const { prompt, platform, language, productImage } = requestData;
+
+    if (!prompt || !platform) {
+      return res.status(400).json({ 
+        error: "Prompt and platform are required" 
+      });
+    }
+
+    console.log(`🎨 Generating ${platform} post:`, { 
+      prompt: prompt.substring(0, 50) + '...', 
+      language, 
+      hasImage: !!productImage 
+    });
+
+    // Import Google Cloud Vertex AI
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    
+    const vertexAI = new VertexAI({
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      location: 'us-central1',
+    });
+
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: {
+        maxOutputTokens: 1500,
+        temperature: 0.7,
+        topP: 0.9,
+      },
+    });
+
+    // Platform-specific content generation
+    const platformContext = {
+      instagram: "Instagram post with engaging visual content, trendy hashtags, and emojis",
+      facebook: "Facebook post with detailed description, community-focused content, and relevant hashtags",
+      twitter: "X (Twitter) post with concise, engaging text, trending hashtags, and character limit awareness"
+    };
+
+    console.log('Platform context for', platform, ':', platformContext[platform]);
+
+    const systemPrompt = `You are a social media content creator specializing in ${platform} posts for artisans and craft businesses.
+
+Platform: ${platform}
+Language: ${language || 'English'}
+Platform Guidelines: ${platformContext[platform]}
+
+${productImage ? `Product Image: ${productImage.name} - Use this product as the main focus of the content.` : ''}
+
+User Request: ${prompt}
+
+Generate:
+1. A compelling caption (2-3 sentences for Instagram, 1-2 sentences for Facebook, 1 sentence for Twitter)
+2. 5-10 relevant hashtags for the platform and content
+
+Format your response as JSON:
+{
+  "caption": "Your generated caption here",
+  "hashtags": ["hashtag1", "hashtag2", "hashtag3"]
+}`;
+
+    console.log('🤖 Calling Vertex AI to generate social content...');
+    const result = await model.generateContent(systemPrompt);
+    
+    // Handle different response structures
+    let text;
+    if (typeof result.response.text === 'function') {
+      text = result.response.text().trim();
+    } else if (result.response.candidates && result.response.candidates[0] && result.response.candidates[0].content) {
+      text = result.response.candidates[0].content.parts[0].text.trim();
+    } else if (result.response.text) {
+      text = result.response.text.trim();
+    } else {
+      console.error('Unexpected response structure:', result.response);
+      throw new Error('Unexpected response structure from Gemini');
+    }
+
+    let content;
+    try {
+      // Clean markdown code blocks from the response
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanedText);
+      content = {
+        caption: parsed.caption || 'Generated caption',
+        hashtags: parsed.hashtags || []
+      };
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError);
+      content = {
+        caption: text || 'Generated caption',
+        hashtags: ['artisan', 'handmade', 'craft']
+      };
+    }
+
+    // Generate placeholder image if needed
+    let image = null;
+    if (!productImage) {
+      const dimensions = platform === 'instagram' ? '400x400' : '600x400';
+      const encodedText = encodeURIComponent(prompt.substring(0, 20));
+      image = `https://dummyimage.com/${dimensions}/6366f1/ffffff&text=${encodedText}`;
+    } else {
+      // For now, return the original product image data
+      // In a full implementation, you would use Vertex AI Imagen for image enhancement
+      image = productImage.data;
+    }
+
+    const response = {
+      image,
+      video: null, // Video generation not implemented yet
+      caption: content.caption,
+      hashtags: content.hashtags,
+      platform
+    };
+
+    console.log(`✅ Generated ${platform} post successfully`);
+    res.json(response);
+
+  } catch (error) {
+    console.error('❌ Error generating social post:', error);
+    res.status(500).json({ 
+      error: "Failed to generate social media post",
+      details: error.message
+    });
+  }
 });
 
 // Catch-all for unmatched API routes
@@ -890,7 +1257,9 @@ console.log('  - GET /api/dashboard/:userId/products');
 console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - POST /api/business-flow/:userId/save');
+console.log('  - POST /api/questionnaire/generate-flow');
 console.log('  - GET /api/social/platforms');
+console.log('  - POST /api/social/generate-post');
 console.log('✅ Ready to handle requests on Netlify!');
 
 // Configure serverless with timeout
