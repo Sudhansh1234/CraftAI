@@ -119,6 +119,9 @@ importers:
       iconv-lite:
         specifier: ^0.4.24
         version: 0.4.24
+      inherits:
+        specifier: ^2.0.4
+        version: 2.0.4
       ipaddr.js:
         specifier: ^2.2.0
         version: 2.2.0

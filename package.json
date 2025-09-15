@@ -73,6 +73,7 @@
     "mime-db": "^1.54.0",
     "safer-buffer": "^2.1.2",
     "toidentifier": "^1.0.1",
+    "inherits": "^2.0.4",
     "on-finished": "^2.4.1",
     "once": "^1.4.0",
     "parseurl": "^1.3.3",
