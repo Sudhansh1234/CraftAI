@@ -20,7 +20,7 @@ console.log('✅ Middleware configured');
 let firebaseApp = null;
 let firestore = null;
 
-// Initialize Firebase with timeout protection
+// Initialize Firebase with aggressive timeout protection
 async function initializeFirebase() {
   console.log('🔥 initializeFirebase called');
   
@@ -38,13 +38,19 @@ async function initializeFirebase() {
   console.log('  - MESSAGING_SENDER_ID:', process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set');
   console.log('  - APP_ID:', process.env.FIREBASE_APP_ID ? 'Set' : 'Not set');
   
+  // Quick check if Firebase config is missing
+  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_API_KEY) {
+    console.log('⚠️ Firebase config missing, returning null');
+    return { firebaseApp: null, firestore: null };
+  }
+  
   try {
-    // Set a timeout for Firebase initialization
+    // Set a very aggressive timeout for Firebase initialization
     const initPromise = new Promise(async (resolve, reject) => {
       try {
         console.log('📦 Importing Firebase modules...');
         const { initializeApp, getApps } = await import('firebase/app');
-        const { getFirestore, connectFirestoreEmulator } = await import('firebase/firestore');
+        const { getFirestore } = await import('firebase/firestore');
         console.log('✅ Firebase modules imported successfully');
         
         // Check if Firebase is already initialized
@@ -86,13 +92,13 @@ async function initializeFirebase() {
       }
     });
     
-    // Set 10 second timeout for Firebase initialization
-    console.log('⏰ Setting 10-second timeout for Firebase initialization...');
+    // Set 5 second timeout for Firebase initialization (very aggressive)
+    console.log('⏰ Setting 5-second timeout for Firebase initialization...');
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.error('⏰ Firebase initialization timeout after 10 seconds');
+        console.error('⏰ Firebase initialization timeout after 5 seconds');
         reject(new Error('Firebase initialization timeout'));
-      }, 10000);
+      }, 5000);
     });
     
     console.log('🏁 Racing Firebase init vs timeout...');
@@ -310,13 +316,13 @@ app.get("/api/dashboard/:userId", async (req, res) => {
       }
     });
     
-    // Set 15 second timeout for Firebase operations
-    console.log('⏰ Setting 15-second timeout for Firebase operations...');
+    // Set 8 second timeout for Firebase operations (more aggressive)
+    console.log('⏰ Setting 8-second timeout for Firebase operations...');
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.error('⏰ Firebase operation timeout after 15 seconds');
+        console.error('⏰ Firebase operation timeout after 8 seconds');
         reject(new Error('Firebase operation timeout'));
-      }, 15000);
+      }, 8000);
     });
     
     console.log('🏁 Racing Firebase fetch vs timeout...');

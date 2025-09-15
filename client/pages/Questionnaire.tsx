@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -166,6 +166,14 @@ const STATIC_QUESTIONS: Question[] = [
 const Questionnaire: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Check if this is an update to existing questionnaire - DECLARE FIRST
+  const isUpdate = location.state?.isUpdate || false;
+  const questionnaireId = location.state?.questionnaireId;
+  const existingAnswers = location.state?.existingAnswers || {};
+  const isNewPlan = location.state?.isNewPlan || false;
+  const clearState = location.state?.clearState || false;
+  
   const [state, setState] = useState<QuestionnaireState>({
     currentQuestion: 0,
     answers: {},
@@ -173,6 +181,13 @@ const Questionnaire: React.FC = () => {
     isComplete: false,
     isGenerating: false
   });
+
+  const [currentAnswer, setCurrentAnswer] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showOtherInput, setShowOtherInput] = useState<boolean>(false);
+  const [otherInputValue, setOtherInputValue] = useState<string>('');
+  const [isInitialized, setIsInitialized] = useState(false);
+  const hasResetRef = useRef(false);
 
   // Debug: Log component mount/unmount
   useEffect(() => {
@@ -184,7 +199,7 @@ const Questionnaire: React.FC = () => {
 
   // Force reset on mount if it's a new plan (additional safeguard)
   useEffect(() => {
-    if (isNewPlan || clearState) {
+    if ((isNewPlan || clearState) && !hasResetRef.current) {
       console.log('FORCE RESET on mount - clearing all state');
       setState({
         currentQuestion: 0,
@@ -198,21 +213,28 @@ const Questionnaire: React.FC = () => {
       setShowOtherInput(false);
       setOtherInputValue('');
       setIsLoading(false);
+      hasResetRef.current = true;
     }
-  }, []); // Run only on mount
+  }, [isNewPlan, clearState]); // Include dependencies but this will only run when these values change
 
-  // Check if this is an update to existing questionnaire
-  const isUpdate = location.state?.isUpdate || false;
-  const questionnaireId = location.state?.questionnaireId;
-  const existingAnswers = location.state?.existingAnswers || {};
-  const isNewPlan = location.state?.isNewPlan || false;
-  const clearState = location.state?.clearState || false;
-
-  const [currentAnswer, setCurrentAnswer] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showOtherInput, setShowOtherInput] = useState<boolean>(false);
-  const [otherInputValue, setOtherInputValue] = useState<string>('');
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Function to manually reset the questionnaire
+  const resetQuestionnaire = () => {
+    console.log('Manual reset triggered');
+    hasResetRef.current = false; // Allow reset again
+    setState({
+      currentQuestion: 0,
+      answers: {},
+      questions: STATIC_QUESTIONS,
+      isComplete: false,
+      isGenerating: false,
+      error: undefined
+    });
+    setCurrentAnswer('');
+    setShowOtherInput(false);
+    setOtherInputValue('');
+    setIsLoading(false);
+    setIsInitialized(true);
+  };
 
   useEffect(() => {
     console.log('Questionnaire useEffect triggered:', {
@@ -221,11 +243,12 @@ const Questionnaire: React.FC = () => {
       isUpdate,
       existingAnswers: Object.keys(existingAnswers),
       locationState: location.state,
-      currentState: state
+      currentState: state,
+      hasReset: hasResetRef.current
     });
 
-    // If this is a new plan or clear state is requested, reset to initial state
-    if (isNewPlan || clearState) {
+    // If this is a new plan or clear state is requested, reset to initial state (only once)
+    if ((isNewPlan || clearState) && !hasResetRef.current) {
       console.log('Resetting questionnaire state for new plan - COMPLETE RESET');
       
       // Force complete reset of all state
@@ -245,23 +268,27 @@ const Questionnaire: React.FC = () => {
       setIsLoading(false);
       setIsInitialized(true);
       
+      // Mark that we've reset to prevent continuous resets
+      hasResetRef.current = true;
+      
       console.log('Questionnaire state reset completed');
       return;
     }
 
     // If this is an update, initialize with existing answers
-    if (isUpdate && Object.keys(existingAnswers).length > 0) {
+    if (isUpdate && Object.keys(existingAnswers).length > 0 && !hasResetRef.current) {
       console.log('Loading existing answers for update:', existingAnswers);
       setState(prev => ({
         ...prev,
         answers: existingAnswers,
         currentQuestion: Math.min(Object.keys(existingAnswers).length, STATIC_QUESTIONS.length - 1)
       }));
+      hasResetRef.current = true;
     }
     
     // Mark as initialized
     setIsInitialized(true);
-  }, [isUpdate, existingAnswers, isNewPlan, clearState]);
+  }, [isUpdate, existingAnswers]); // Removed isNewPlan and clearState from dependencies
 
   // Static questionnaire - simple progression through predefined questions
   const goToNextQuestion = () => {
@@ -575,14 +602,8 @@ const Questionnaire: React.FC = () => {
                 {Math.round(progress)}% Complete
               </Badge>
             </div>
-            <Progress value={progress} className="mb-4" />
-            <CardTitle className="text-xl">{currentQ?.question}</CardTitle>
-            {(isNewPlan || clearState) && (
-              <div className="mt-4 inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-sm">
-                <Sparkles className="h-3 w-3 mr-1" />
-                Starting fresh for your new business plan - Component re-mounted
-              </div>
-            )}
+              <Progress value={progress} className="mb-4" />
+              <CardTitle className="text-xl">{currentQ?.question}</CardTitle>
           </CardHeader>
           
           <CardContent>
