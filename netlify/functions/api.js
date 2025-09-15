@@ -2,12 +2,16 @@
 const express = require('express');
 const serverless = require('serverless-http');
 const cors = require('cors');
+const bodyParser = require('body-parser');
+const accepts = require('accepts');
+const typeIs = require('type-is');
 
 const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Google Cloud configuration from environment variables
 const googleCloudConfig = {
