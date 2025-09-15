@@ -204,71 +204,153 @@ app.get("/api/dashboard/:userId", async (req, res) => {
         const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
         console.log('✅ Firestore functions imported');
 
-        // Fetch insights
-        console.log('🔍 Fetching insights for user:', userId);
-        const insightsRef = collection(firestore, 'insights');
-        const insightsQuery = query(
-          insightsRef, 
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(10)
+        // Fetch products
+        console.log('🛍️ Fetching products for user:', userId);
+        const productsRef = collection(firestore, 'products');
+        const productsQuery = query(
+          productsRef,
+          where('user_id', '==', userId),
+          orderBy('created_at', 'desc'),
+          limit(20)
         );
-        console.log('📊 Executing insights query...');
-        const insightsSnapshot = await getDocs(insightsQuery);
-        console.log('📊 Insights query completed, found', insightsSnapshot.docs.length, 'documents');
-        const insights = insightsSnapshot.docs.map(doc => ({
+        console.log('📊 Executing products query...');
+        const productsSnapshot = await getDocs(productsQuery);
+        console.log('📊 Products query completed, found', productsSnapshot.docs.length, 'documents');
+        const products = productsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
-        console.log('✅ Insights processed:', insights.length);
+        console.log('✅ Products processed:', products.length);
 
-        // Fetch business metrics
-        console.log('📈 Fetching business metrics for user:', userId);
-        const metricsRef = collection(firestore, 'businessMetrics');
-        const metricsQuery = query(
-          metricsRef, 
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(5)
+        // Fetch sales
+        console.log('💰 Fetching sales for user:', userId);
+        const salesRef = collection(firestore, 'sales');
+        const salesQuery = query(
+          salesRef,
+          where('user_id', '==', userId),
+          orderBy('created_at', 'desc'),
+          limit(50)
         );
-        console.log('📊 Executing metrics query...');
-        const metricsSnapshot = await getDocs(metricsQuery);
-        console.log('📊 Metrics query completed, found', metricsSnapshot.docs.length, 'documents');
-        const businessMetrics = metricsSnapshot.docs.map(doc => ({
+        console.log('📊 Executing sales query...');
+        const salesSnapshot = await getDocs(salesQuery);
+        console.log('📊 Sales query completed, found', salesSnapshot.docs.length, 'documents');
+        const sales = salesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
-        console.log('✅ Business metrics processed:', businessMetrics.length);
+        console.log('✅ Sales processed:', sales.length);
+
+        // Combine as business metrics for backward compatibility
+        const businessMetrics = [
+          ...products.map(p => ({ ...p, metric_type: 'products' })),
+          ...sales.map(s => ({ ...s, metric_type: 'sales' }))
+        ];
+
+        // Try fallback to business_metrics collection if no data found
+        if (businessMetrics.length === 0) {
+          console.log('📈 No products/sales found, trying business_metrics fallback...');
+          const metricsRef = collection(firestore, 'business_metrics');
+          const metricsQuery = query(
+            metricsRef,
+            where('user_id', '==', userId),
+            orderBy('date_recorded', 'desc'),
+            limit(20)
+          );
+          const metricsSnapshot = await getDocs(metricsQuery);
+          const fallbackMetrics = metricsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          businessMetrics.push(...fallbackMetrics);
+          console.log('✅ Fallback metrics processed:', fallbackMetrics.length);
+        }
 
         console.log('🔧 Building dashboard data object...');
+        
+        // Calculate KPIs from real data
+        const totalProductsSold = sales.reduce((sum, sale) => sum + (sale.quantity || 0), 0);
+        const totalRevenue = sales.reduce((sum, sale) => sum + ((sale.price_per_unit || 0) * (sale.quantity || 0)), 0);
+        const totalProducts = products.length;
+        const averageOrderValue = sales.length > 0 ? totalRevenue / sales.length : 0;
+        const inventoryValue = products.reduce((sum, product) => sum + ((product.material_cost || 0) * (product.quantity || 0)), 0);
+        
+        // Calculate growth (simple week-over-week)
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const recentSales = sales.filter(sale => {
+          const saleDate = sale.sale_date ? new Date(sale.sale_date) : new Date(sale.created_at?.toDate?.() || sale.created_at);
+          return saleDate >= sevenDaysAgo;
+        });
+        const recentRevenue = recentSales.reduce((sum, sale) => sum + ((sale.price_per_unit || 0) * (sale.quantity || 0)), 0);
+        const weeklyGrowth = sales.length > recentSales.length ? 
+          ((recentRevenue / (totalRevenue - recentRevenue)) - 1) * 100 : 0;
+
+        // Generate sales chart data from real sales
+        const salesChartData = sales.slice(0, 7).map(sale => ({
+          date: sale.sale_date || (sale.created_at?.toDate?.() || sale.created_at).toISOString().split('T')[0],
+          sales: sale.quantity || 0,
+          revenue: (sale.price_per_unit || 0) * (sale.quantity || 0)
+        }));
+
+        // Generate inventory data for table
+        const inventoryData = products.map(product => ({
+          id: product.id,
+          product_name: product.product_name || 'Unnamed Product',
+          quantity: product.quantity || 0,
+          material_cost: product.material_cost || 0,
+          selling_price: product.selling_price || 0,
+          total_value: (product.selling_price || 0) * (product.quantity || 0),
+          profit_margin: product.selling_price > 0 ? 
+            (((product.selling_price - product.material_cost) / product.selling_price) * 100) : 0,
+          last_updated: product.updated_at?.toDate?.() || product.updated_at || product.created_at?.toDate?.() || product.created_at || new Date().toISOString()
+        }));
+
         const dashboardData = {
           userId: userId,
-          insights: insights,
+          // Empty insights - no AI insights implemented
+          insights: [],
           summary: {
-            totalInsights: insights.length,
-            highPriorityCount: insights.filter(i => i.priority === 'high').length,
-            actionableCount: insights.filter(i => i.actionable).length,
-            weeklyGrowth: 0, // Calculate this based on your data
-            topCategories: [...new Set(insights.map(i => i.category))].slice(0, 5)
+            totalInsights: 0,
+            highPriorityCount: 0,
+            actionableCount: 0,
+            weeklyGrowth: Math.round(weeklyGrowth * 10) / 10,
+            topCategories: []
           },
+          // Empty recommendations - no AI recommendations implemented  
           recommendations: {
-            immediate: insights.filter(i => i.priority === 'high').map(i => i.title),
-            shortTerm: insights.filter(i => i.priority === 'medium').map(i => i.title),
-            longTerm: insights.filter(i => i.priority === 'low').map(i => i.title)
+            immediate: [],
+            shortTerm: [],
+            longTerm: []
           },
           marketTrends: {
             trendingProducts: [],
             seasonalOpportunities: [],
             competitorInsights: []
           },
+          // Real business data
           businessMetrics: businessMetrics,
+          kpiData: {
+            productsSold: totalProductsSold,
+            totalSales: sales.length,
+            totalRevenue: totalRevenue,
+            topSeller: products.length > 0 ? products[0].product_name : 'No products',
+            salesGrowth: Math.round(weeklyGrowth * 10) / 10,
+            productGrowth: 0, // Could calculate from historical data
+            averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+            inventoryValue: Math.round(inventoryValue * 100) / 100
+          },
+          salesChartData: salesChartData,
+          inventoryData: inventoryData,
+          products: products,
+          sales: sales,
           timestamp: new Date().toISOString(),
           dataSource: "firebase",
           platform: "netlify"
         };
 
         console.log('✅ Dashboard data built successfully:', {
-          insightsCount: insights.length,
+          productsCount: products.length,
+          salesCount: sales.length,
           metricsCount: businessMetrics.length,
           dataSource: 'firebase'
         });
@@ -332,27 +414,74 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
     console.log('📦 Using Firebase Client SDK for add-metric...');
     const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
 
-    const metricDataWithTimestamp = {
-      ...metricData,
-      userId: userId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
+    let docRef;
+    let collectionName;
 
-    console.log('💾 Adding metric to Firestore:', metricDataWithTimestamp);
-    const docRef = await addDoc(collection(firestore, 'businessMetrics'), metricDataWithTimestamp);
-    console.log('✅ Metric added with ID:', docRef.id);
+    if (metricData.metricType === 'products') {
+      // Save to products collection
+      collectionName = 'products';
+      const productData = {
+        user_id: userId,
+        product_name: metricData.productName,
+        material_cost: metricData.materialCost || 0,
+        selling_price: metricData.sellingPrice || metricData.value,
+        quantity: metricData.quantity || 0,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      };
+      console.log('💾 Adding product to Firestore:', productData);
+      docRef = await addDoc(collection(firestore, collectionName), productData);
+      
+    } else if (metricData.metricType === 'sales') {
+      // Save to sales collection
+      collectionName = 'sales';
+      const saleData = {
+        user_id: userId,
+        product_name: metricData.productName,
+        quantity: metricData.quantity || 0,
+        price_per_unit: metricData.price || 0,
+        total_value: metricData.value,
+        sale_date: metricData.date || new Date().toISOString().split('T')[0],
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      };
+      console.log('💾 Adding sale to Firestore:', saleData);
+      docRef = await addDoc(collection(firestore, collectionName), saleData);
+      
+    } else {
+      // Fallback to business_metrics collection
+      collectionName = 'business_metrics';
+      const metricDataWithTimestamp = {
+        user_id: userId,
+        metric_type: metricData.metricType,
+        value: metricData.value,
+        product_name: metricData.productName || null,
+        quantity: metricData.quantity || null,
+        date_recorded: metricData.date || new Date().toISOString().split('T')[0],
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      };
+      console.log('💾 Adding metric to Firestore:', metricDataWithTimestamp);
+      docRef = await addDoc(collection(firestore, collectionName), metricDataWithTimestamp);
+    }
 
-    res.status(201).json({ 
-      message: 'Metric added successfully', 
+    console.log('✅ Data added to', collectionName, 'with ID:', docRef.id);
+
+    res.status(201).json({
+      success: true,
+      message: `${metricData.metricType} added successfully`,
       id: docRef.id,
       userId: userId,
-      metric: metricDataWithTimestamp,
+      collection: collectionName,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('❌ Add metric API error:', error);
-    res.status(500).json({ error: 'Failed to add metric', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to add metric', 
+      details: error.message 
+    });
   }
 });
 
@@ -368,6 +497,7 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     if (!firestore) {
       console.log('⚠️ Firestore not available, using sample products');
       return res.json({
+        success: true,
         products: [
           { id: 'sample-1', name: 'Sample Product 1', price: 100, quantity: 5, dataSource: 'sample' }
         ],
@@ -381,17 +511,34 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     const productsRef = collection(firestore, 'products');
     const productsQuery = query(
       productsRef, 
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
     );
     const productsSnapshot = await getDocs(productsQuery);
-    const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const products = productsSnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      // Transform to match expected format
+      name: doc.data().product_name,
+      price: doc.data().selling_price,
+      materialCost: doc.data().material_cost,
+      sellingPrice: doc.data().selling_price,
+      dateAdded: doc.data().created_at?.toDate?.() || doc.data().created_at
+    }));
 
     console.log('✅ Products fetched:', products.length);
-    res.json({ products, dataSource: 'firebase' });
+    res.json({ 
+      success: true,
+      products, 
+      dataSource: 'firebase' 
+    });
   } catch (error) {
     console.error('❌ Get products API error:', error);
-    res.status(500).json({ error: 'Failed to fetch products', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch products', 
+      details: error.message 
+    });
   }
 });
 
@@ -407,6 +554,7 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
     if (!firestore) {
       console.log('⚠️ Firestore not available, using sample charts');
       return res.json({
+        success: true,
         charts: [
           { id: 'sample-chart-1', name: 'Sample Business Flow', nodes: [], edges: [], dataSource: 'sample' }
         ],
@@ -415,17 +563,34 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
     }
 
     console.log('🔍 Fetching charts for user:', userId);
-    const chartsSnapshot = await firestore.collection('businessFlowCharts')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .get();
-    const charts = chartsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const { collection, getDocs, query, where, orderBy } = await import('firebase/firestore');
+    const chartsSnapshot = await getDocs(query(
+      collection(firestore, 'business_flow'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
+    ));
+    const charts = chartsSnapshot.docs.map(doc => ({ 
+      id: doc.id, 
+      ...doc.data(),
+      // Transform to expected format
+      name: doc.data().title || 'Business Flow',
+      nodes: doc.data().nodes || [],
+      edges: doc.data().edges || []
+    }));
 
     console.log('✅ Charts fetched:', charts.length);
-    res.json({ charts, dataSource: 'firebase' });
+    res.json({ 
+      success: true,
+      charts, 
+      dataSource: 'firebase' 
+    });
   } catch (error) {
     console.error('❌ Business flow charts API error:', error);
-    res.status(500).json({ error: 'Failed to fetch charts', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch charts', 
+      details: error.message 
+    });
   }
 });
 
@@ -441,36 +606,137 @@ app.get("/api/business-flow/:userId/latest", async (req, res) => {
     if (!firestore) {
       console.log('⚠️ Firestore not available, using sample latest flow');
       return res.json({
-        id: 'sample-latest-1',
-        name: 'Sample Latest Business Flow',
-        nodes: [],
-        edges: [],
-        createdAt: new Date().toISOString(),
-        dataSource: 'sample'
+        success: true,
+        hasFlow: true,
+        data: {
+          id: 'sample-latest-1',
+          name: 'Sample Latest Business Flow',
+          nodes: [],
+          edges: [],
+          created_at: new Date().toISOString(),
+          dataSource: 'sample'
+        }
       });
     }
 
     console.log('🔍 Fetching latest business flow for user:', userId);
-    const latestSnapshot = await firestore.collection('businessFlowCharts')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(1)
-      .get();
+    const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+    const latestSnapshot = await getDocs(query(
+      collection(firestore, 'business_flow'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc'),
+      limit(1)
+    ));
     
     if (latestSnapshot.empty) {
       console.log('📭 No business flows found for user');
       return res.json({
+        success: false,
         message: 'No business flows found',
+        hasFlow: false,
         dataSource: 'firebase'
       });
     }
 
     const latestFlow = { id: latestSnapshot.docs[0].id, ...latestSnapshot.docs[0].data() };
     console.log('✅ Latest business flow fetched:', latestFlow.id);
-    res.json({ ...latestFlow, dataSource: 'firebase' });
+    res.json({ 
+      success: true,
+      hasFlow: true,
+      data: latestFlow,
+      dataSource: 'firebase' 
+    });
   } catch (error) {
     console.error('❌ Business flow latest API error:', error);
-    res.status(500).json({ error: 'Failed to fetch latest business flow', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch latest business flow', 
+      details: error.message 
+    });
+  }
+});
+
+// Business flow save endpoint with Firebase Client SDK
+app.post("/api/business-flow/:userId/save", async (req, res) => {
+  console.log('💾 Business flow save endpoint called');
+  console.log('👤 User ID:', req.params.userId);
+
+  try {
+    const userId = req.params.userId;
+    const flowData = req.body;
+
+    if (!flowData.title && !flowData.nodes) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required flow data (title or nodes)' 
+      });
+    }
+
+    console.log('🔥 Calling initializeFirebase for save business flow...');
+    const { firestore } = await initializeFirebase();
+    if (!firestore) {
+      console.log('⚠️ Firestore not available, cannot save business flow');
+      return res.status(500).json({ 
+        success: false,
+        error: 'Firebase not initialized, cannot save business flow' 
+      });
+    }
+
+    console.log('📦 Using Firebase Client SDK for save business flow...');
+    const { collection, addDoc, getDocs, query, where, orderBy, limit, updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
+
+    // Check if user already has a business flow
+    const existingSnapshot = await getDocs(query(
+      collection(firestore, 'business_flow'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc'),
+      limit(1)
+    ));
+
+    const businessFlowData = {
+      user_id: userId,
+      title: flowData.title || 'Business Flow',
+      nodes: flowData.nodes || [],
+      edges: flowData.edges || [],
+      userLocation: flowData.userLocation || null,
+      craftType: flowData.craftType || null,
+      language: flowData.language || 'en',
+      updated_at: serverTimestamp()
+    };
+
+    let docRef;
+    let operation;
+
+    if (!existingSnapshot.empty) {
+      // Update existing business flow
+      const existingDoc = existingSnapshot.docs[0];
+      docRef = doc(firestore, 'business_flow', existingDoc.id);
+      await updateDoc(docRef, businessFlowData);
+      operation = 'updated';
+      console.log('✅ Business flow updated with ID:', existingDoc.id);
+    } else {
+      // Create new business flow
+      businessFlowData.created_at = serverTimestamp();
+      docRef = await addDoc(collection(firestore, 'business_flow'), businessFlowData);
+      operation = 'created';
+      console.log('✅ Business flow created with ID:', docRef.id);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Business flow ${operation} successfully`,
+      id: docRef.id || existingSnapshot.docs[0].id,
+      userId: userId,
+      operation: operation,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Save business flow API error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to save business flow', 
+      details: error.message 
+    });
   }
 });
 
@@ -507,6 +773,7 @@ console.log('  - POST /api/dashboard/:userId/add-metric');
 console.log('  - GET /api/dashboard/:userId/products');
 console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/business-flow/:userId/latest');
+console.log('  - POST /api/business-flow/:userId/save');
 console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests on Netlify!');
 
