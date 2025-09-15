@@ -1,4 +1,5 @@
-// Netlify function for API routes - With Firebase and timeout prevention
+// Netlify function for API routes - Using Firebase Admin SDK for better serverless compatibility
+
 const express = require('express');
 const serverless = require('serverless-http');
 const cors = require('cors');
@@ -7,12 +8,12 @@ console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Environment:', process.env.NODE_ENV || 'production');
 
-// Firebase configuration - Simplified approach to avoid ES module issues
+// Firebase configuration - Using Firebase Admin SDK for serverless environments
 
 let firebaseApp = null;
 let firestore = null;
 
-// Simplified Firebase initialization that avoids problematic imports
+// Firebase Admin SDK initialization (better for serverless)
 async function initializeFirebase() {
   console.log('🔥 initializeFirebase called');
 
@@ -21,62 +22,54 @@ async function initializeFirebase() {
     return { firebaseApp, firestore };
   }
 
-  console.log('🔧 Starting Firebase initialization...');
+  console.log('🔧 Starting Firebase Admin SDK initialization...');
   console.log('🔑 Firebase config check:');
-  console.log('  - API_KEY:', process.env.FIREBASE_API_KEY ? 'Set' : 'Not set');
-  console.log('  - AUTH_DOMAIN:', process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set');
   console.log('  - PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set');
-  console.log('  - STORAGE_BUCKET:', process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set');
-  console.log('  - MESSAGING_SENDER_ID:', process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set');
-  console.log('  - APP_ID:', process.env.FIREBASE_APP_ID ? 'Set' : 'Not set');
+  console.log('  - PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? 'Set' : 'Not set');
+  console.log('  - CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? 'Set' : 'Not set');
 
   // Quick check if Firebase config is missing
-  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_API_KEY) {
-    console.log('⚠️ Firebase config missing, returning null');
+  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY) {
+    console.log('⚠️ Firebase Admin config missing, using sample data');
     return { firebaseApp: null, firestore: null };
   }
 
   try {
-    console.log('📦 Importing Firebase v9 modules...');
-    const firebase = require('@firebase/app');
-    const firestoreModule = require('@firebase/firestore');
-    console.log('✅ Firebase v9 modules imported successfully');
+    console.log('📦 Importing Firebase Admin SDK...');
+    const admin = require('firebase-admin');
+    console.log('✅ Firebase Admin SDK imported successfully');
 
     // Check if Firebase is already initialized
     console.log('🔍 Checking for existing Firebase apps...');
-    const apps = firebase.getApps();
+    const apps = admin.apps;
     console.log('📊 Found', apps.length, 'existing Firebase apps');
 
     if (apps.length > 0) {
       console.log('♻️ Using existing Firebase app');
       firebaseApp = apps[0];
     } else {
-      console.log('🆕 Creating new Firebase app...');
-      const firebaseConfig = {
-        apiKey: process.env.FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+      console.log('🆕 Creating new Firebase Admin app...');
+      const serviceAccount = {
         projectId: process.env.FIREBASE_PROJECT_ID,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL
       };
 
-      console.log('🔧 Initializing Firebase with config:', {
-        ...firebaseConfig,
-        apiKey: firebaseConfig.apiKey ? 'Set' : 'Not set'
+      console.log('🔧 Initializing Firebase Admin with service account');
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+        projectId: process.env.FIREBASE_PROJECT_ID
       });
-
-      firebaseApp = firebase.initializeApp(firebaseConfig);
-      console.log('✅ Firebase app initialized successfully');
+      console.log('✅ Firebase Admin app initialized successfully');
     }
 
     console.log('🗄️ Getting Firestore instance...');
-    firestore = firestoreModule.getFirestore(firebaseApp);
+    firestore = admin.firestore();
     console.log('✅ Firestore instance created');
 
     return { firebaseApp, firestore };
   } catch (error) {
-    console.error('❌ Firebase initialization failed:', error);
+    console.error('❌ Firebase Admin initialization failed:', error);
     console.error('❌ Error details:', {
       message: error.message,
       stack: error.stack,
@@ -102,8 +95,7 @@ app.get("/api/health", (req, res) => {
   const response = {
     status: "ok",
     timestamp: new Date().toISOString(),
-    message: "Netlify API is working",
-    platform: "netlify"
+    message: "API is working"
   };
   console.log('✅ Health check response:', response);
   res.json(response);
@@ -111,7 +103,7 @@ app.get("/api/health", (req, res) => {
 
 // Simple ping endpoint
 app.get("/api/ping", (req, res) => {
-  res.json({ message: "Hello from Netlify API with Firebase" });
+  res.json({ message: "Hello from Netlify API with Firebase Admin SDK" });
 });
 
 // Dashboard test endpoint
@@ -128,12 +120,11 @@ app.get("/api/dashboard/test", async (req, res) => {
     });
 
     const response = {
-      message: 'Dashboard API is working on Netlify',
+      message: 'Dashboard API is working',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'production',
       firebaseStatus: firebaseApp ? 'Connected' : 'Not connected',
-      firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'Not set',
-      platform: 'netlify'
+      firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'Not set'
     };
 
     console.log('✅ Dashboard test response:', response);
@@ -148,15 +139,14 @@ app.get("/api/dashboard/test", async (req, res) => {
 
     const errorResponse = {
       error: 'Dashboard test failed',
-      details: error.message,
-      platform: 'netlify'
+      details: error.message
     };
     console.log('❌ Sending error response:', errorResponse);
     res.status(500).json(errorResponse);
   }
 });
 
-// Dashboard data endpoint with Firebase
+// Dashboard data endpoint with Firebase Admin SDK
 app.get("/api/dashboard/:userId", async (req, res) => {
   console.log('📊 Dashboard endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -222,21 +212,16 @@ app.get("/api/dashboard/:userId", async (req, res) => {
     console.log('🔥 Starting Firebase data fetch...');
     const fetchPromise = new Promise(async (resolve, reject) => {
       try {
-        console.log('📦 Importing Firestore functions...');
-        const firestoreModule = require('@firebase/firestore');
-        console.log('✅ Firestore functions imported');
+        console.log('📦 Using Firebase Admin SDK for Firestore operations...');
+        console.log('✅ Firestore Admin SDK ready');
 
         // Fetch insights
         console.log('🔍 Fetching insights for user:', userId);
-        const insightsRef = firestoreModule.collection(firestore, 'insights');
-        const insightsQuery = firestoreModule.query(
-          insightsRef,
-          firestoreModule.where('userId', '==', userId),
-          firestoreModule.orderBy('createdAt', 'desc'),
-          firestoreModule.limit(10)
-        );
-        console.log('📊 Executing insights query...');
-        const insightsSnapshot = await firestoreModule.getDocs(insightsQuery);
+        const insightsSnapshot = await firestore.collection('insights')
+          .where('userId', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .limit(10)
+          .get();
         console.log('📊 Insights query completed, found', insightsSnapshot.docs.length, 'documents');
         const insights = insightsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -246,15 +231,11 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 
         // Fetch business metrics
         console.log('📈 Fetching business metrics for user:', userId);
-        const metricsRef = firestoreModule.collection(firestore, 'businessMetrics');
-        const metricsQuery = firestoreModule.query(
-          metricsRef,
-          firestoreModule.where('userId', '==', userId),
-          firestoreModule.orderBy('createdAt', 'desc'),
-          firestoreModule.limit(5)
-        );
-        console.log('📊 Executing metrics query...');
-        const metricsSnapshot = await firestoreModule.getDocs(metricsQuery);
+        const metricsSnapshot = await firestore.collection('businessMetrics')
+          .where('userId', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .limit(5)
+          .get();
         console.log('📊 Metrics query completed, found', metricsSnapshot.docs.length, 'documents');
         const businessMetrics = metricsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -301,7 +282,7 @@ app.get("/api/dashboard/:userId", async (req, res) => {
       }
     });
 
-    // Set 15 second timeout for Firebase operations (more reasonable for Netlify)
+    // Set 15 second timeout for Firebase operations
     console.log('⏰ Setting 15-second timeout for Firebase operations...');
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
@@ -333,8 +314,7 @@ app.get("/api/dashboard/:userId", async (req, res) => {
       error: 'Failed to fetch dashboard data',
       details: error.message,
       userId: req.params.userId,
-      timestamp: new Date().toISOString(),
-      platform: 'netlify'
+      timestamp: new Date().toISOString()
     };
 
     console.log('❌ Sending error response:', errorResponse);
@@ -342,7 +322,7 @@ app.get("/api/dashboard/:userId", async (req, res) => {
   }
 });
 
-// Add metric endpoint with Firebase
+// Add metric endpoint with Firebase Admin SDK
 app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   console.log('➕ Add metric endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -351,7 +331,7 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
 
   try {
     const userId = req.params.userId;
-    
+
     // Parse body if it's a Buffer
     let parsedBody = req.body;
     if (Buffer.isBuffer(req.body)) {
@@ -359,7 +339,7 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       parsedBody = JSON.parse(req.body.toString());
       console.log('✅ Parsed body:', parsedBody);
     }
-    
+
     const { metricType, value, date, productName, price, quantity, materialCost, sellingPrice } = parsedBody;
 
     if (!metricType || !value) {
@@ -374,8 +354,7 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       return res.status(500).json({ error: 'Firebase not initialized, cannot add metric' });
     }
 
-    console.log('📦 Importing Firestore functions for add-metric...');
-    const firestoreModule = require('@firebase/firestore');
+    console.log('📦 Using Firebase Admin SDK for add-metric...');
 
     const metricData = {
       userId,
@@ -387,11 +366,11 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       quantity,
       materialCost,
       sellingPrice,
-      createdAt: firestoreModule.Timestamp.now()
+      createdAt: new Date()
     };
 
     console.log('💾 Adding metric to Firestore:', metricData);
-    const docRef = await firestoreModule.addDoc(firestoreModule.collection(firestore, 'businessMetrics'), metricData);
+    const docRef = await firestore.collection('businessMetrics').add(metricData);
     console.log('✅ Metric added with ID:', docRef.id);
 
     res.status(201).json({ message: 'Metric added successfully', id: docRef.id, data: metricData });
@@ -401,7 +380,7 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   }
 });
 
-// Get products endpoint with Firebase
+// Get products endpoint with Firebase Admin SDK
 app.get("/api/dashboard/:userId/products", async (req, res) => {
   console.log('🛍️ Get products endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -421,10 +400,10 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     }
 
     console.log('🔍 Fetching products for user:', userId);
-    const firestoreModule = require('@firebase/firestore');
-    const productsRef = firestoreModule.collection(firestore, 'products');
-    const productsQuery = firestoreModule.query(productsRef, firestoreModule.where('userId', '==', userId), firestoreModule.orderBy('createdAt', 'desc'));
-    const productsSnapshot = await firestoreModule.getDocs(productsQuery);
+    const productsSnapshot = await firestore.collection('products')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get();
     const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('✅ Products fetched:', products.length);
@@ -435,7 +414,7 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
   }
 });
 
-// Business flow charts endpoint (placeholder with Firebase)
+// Business flow charts endpoint with Firebase Admin SDK
 app.get("/api/business-flow/charts/:userId", async (req, res) => {
   console.log('📈 Business flow charts endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -455,10 +434,10 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
     }
 
     console.log('🔍 Fetching charts for user:', userId);
-    const firestoreModule = require('@firebase/firestore');
-    const chartsRef = firestoreModule.collection(firestore, 'businessFlowCharts');
-    const chartsQuery = firestoreModule.query(chartsRef, firestoreModule.where('userId', '==', userId), firestoreModule.orderBy('createdAt', 'desc'));
-    const chartsSnapshot = await firestoreModule.getDocs(chartsQuery);
+    const chartsSnapshot = await firestore.collection('businessFlowCharts')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get();
     const charts = chartsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('✅ Charts fetched:', charts.length);
@@ -469,7 +448,7 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
   }
 });
 
-// Business flow latest endpoint
+// Business flow latest endpoint with Firebase Admin SDK
 app.get("/api/business-flow/:userId/latest", async (req, res) => {
   console.log('📈 Business flow latest endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -491,15 +470,11 @@ app.get("/api/business-flow/:userId/latest", async (req, res) => {
     }
 
     console.log('🔍 Fetching latest business flow for user:', userId);
-    const firestoreModule = require('@firebase/firestore');
-    const flowsRef = firestoreModule.collection(firestore, 'businessFlowCharts');
-    const latestQuery = firestoreModule.query(
-      flowsRef, 
-      firestoreModule.where('userId', '==', userId), 
-      firestoreModule.orderBy('createdAt', 'desc'),
-      firestoreModule.limit(1)
-    );
-    const latestSnapshot = await firestoreModule.getDocs(latestQuery);
+    const latestSnapshot = await firestore.collection('businessFlowCharts')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
     
     if (latestSnapshot.empty) {
       console.log('📭 No business flows found for user');
@@ -536,13 +511,12 @@ app.use((req, res) => {
     error: "API endpoint not found",
     path: req.path,
     method: req.method,
-    timestamp: new Date().toISOString(),
-    platform: "netlify"
+    timestamp: new Date().toISOString()
   });
 });
 
 // Export the serverless handler
-console.log('🚀 Netlify API setup complete, exporting serverless handler');
+console.log('🚀 API setup complete, exporting serverless handler');
 console.log('📋 Available endpoints:');
 console.log('  - GET /api/health');
 console.log('  - GET /api/ping');
@@ -551,6 +525,7 @@ console.log('  - GET /api/dashboard/:userId');
 console.log('  - POST /api/dashboard/:userId/add-metric');
 console.log('  - GET /api/dashboard/:userId/products');
 console.log('  - GET /api/business-flow/charts/:userId');
+console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests on Netlify!');
 

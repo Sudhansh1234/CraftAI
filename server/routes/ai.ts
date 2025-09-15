@@ -10,12 +10,57 @@ let visionAI: any = null;
 let imagenModel: any = null;
 let googleGenAI: any = null;
 
+// Helper function to validate Google Cloud credentials
+function validateGoogleCloudCredentials(): boolean {
+  const requiredVars = [
+    'GOOGLE_CLOUD_PROJECT_ID',
+    'GOOGLE_CLOUD_PRIVATE_KEY_ID', 
+    'GOOGLE_CLOUD_PRIVATE_KEY',
+    'GOOGLE_CLOUD_CLIENT_EMAIL',
+    'GOOGLE_CLOUD_CLIENT_ID'
+  ];
+  
+  const missingVars = requiredVars.filter(varName => !process.env[varName]);
+  
+  if (missingVars.length > 0) {
+    console.error('❌ Missing required Google Cloud environment variables:', missingVars);
+    console.log('📝 Please add these to your .env.local file:');
+    missingVars.forEach(varName => {
+      console.log(`   ${varName}=your_value_here`);
+    });
+    return false;
+  }
+  
+  return true;
+}
+
+// Helper function to create Google Cloud credentials object
+function createGoogleCloudCredentials() {
+  return {
+    type: 'service_account',
+    project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+    private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+    private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+    client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.GOOGLE_CLOUD_CLIENT_EMAIL}`
+  };
+}
+
 export async function initializeVertexAI() {
   if (!vertexAI) {
+    if (!validateGoogleCloudCredentials()) {
+      throw new Error('Google Cloud credentials validation failed');
+    }
+    
     const { VertexAI } = await import('@google-cloud/vertexai');
     vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID!,
-      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      credentials: createGoogleCloudCredentials()
     });
     
     model = vertexAI.getGenerativeModel({
@@ -87,9 +132,13 @@ Your goal is to guide artisans step by step and adapt your questions dynamically
 
 export async function initializeVisionAI() {
   if (!visionAI) {
+    if (!validateGoogleCloudCredentials()) {
+      throw new Error('Google Cloud credentials validation failed');
+    }
+    
     const { ImageAnnotatorClient } = await import('@google-cloud/vision');
     visionAI = new ImageAnnotatorClient({
-      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS
+      credentials: createGoogleCloudCredentials()
     });
   }
   return visionAI;
@@ -97,10 +146,15 @@ export async function initializeVisionAI() {
 
 export async function initializeImagenAI() {
   if (!imagenModel) {
+    if (!validateGoogleCloudCredentials()) {
+      throw new Error('Google Cloud credentials validation failed');
+    }
+    
     const { VertexAI } = await import('@google-cloud/vertexai');
     const vertexAIInstance = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID!,
-      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
+      credentials: createGoogleCloudCredentials()
     });
     
     imagenModel = vertexAIInstance.getGenerativeModel({
