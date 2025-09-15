@@ -26,6 +26,9 @@ importers:
       '@google-cloud/vision':
         specifier: ^5.3.3
         version: 5.3.3
+      '@google/genai':
+        specifier: ^1.19.0
+        version: 1.19.0
       '@googlemaps/google-maps-services-js':
         specifier: ^3.4.2
         version: 3.4.2
@@ -740,6 +743,15 @@ packages:
   '@google-cloud/vision@5.3.3':
     resolution: {integrity: sha512-zByFQWEJiOcEDYjHLh6zzt3f8cW5k9f4yMF37TeBhPzaG/W0tKdmLHnFFIz1gKAhXgyvh2VNwotSbYlgH9iPGA==}
     engines: {node: '>=18'}
+
+  '@google/genai@1.19.0':
+    resolution: {integrity: sha512-mIMV3M/KfzzFA//0fziK472wKBJ1TdJLhozIUJKTPLyTDN1NotU+hyoHW/N0cfrcEWUK20YA0GxCeHC4z0SbMA==}
+    engines: {node: '>=20.0.0'}
+    peerDependencies:
+      '@modelcontextprotocol/sdk': ^1.11.4
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
 
   '@googlemaps/google-maps-services-js@3.4.2':
     resolution: {integrity: sha512-QjxiJSt8woyPaaQIUUDNL1nRfCEXTiv8KfJSNq/YzKEUVXABT75GLG+Zo267UwOcq70n8OsZbaro5VrY962mJg==}
@@ -4115,6 +4127,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@8.18.3:
+    resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
@@ -4736,6 +4760,16 @@ snapshots:
       google-gax: 5.0.3
     transitivePeerDependencies:
       - supports-color
+
+  '@google/genai@1.19.0':
+    dependencies:
+      google-auth-library: 9.15.1
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
 
   '@googlemaps/google-maps-services-js@3.4.2':
     dependencies:
@@ -8397,6 +8431,8 @@ snapshots:
       strip-ansi: 7.1.0
 
   wrappy@1.0.2: {}
+
+  ws@8.18.3: {}
 
   xtend@4.0.2: {}
 
