@@ -41,9 +41,15 @@ importers:
       body-parser:
         specifier: ^1.20.2
         version: 1.20.3
+      bytes:
+        specifier: ^3.1.2
+        version: 3.1.2
       compression:
         specifier: ^1.7.4
         version: 1.8.1
+      content-disposition:
+        specifier: ^0.5.4
+        version: 0.5.4
       content-type:
         specifier: ^1.0.5
         version: 1.0.5
@@ -56,15 +62,30 @@ importers:
       cors:
         specifier: ^2.8.5
         version: 2.8.5
+      depd:
+        specifier: ^2.0.0
+        version: 2.0.0
+      destroy:
+        specifier: ^1.2.0
+        version: 1.2.0
       dotenv:
         specifier: ^17.2.1
         version: 17.2.1
+      encodeurl:
+        specifier: ^2.0.0
+        version: 2.0.0
+      escape-html:
+        specifier: ^1.0.3
+        version: 1.0.3
       etag:
         specifier: ^1.8.1
         version: 1.8.1
       express:
         specifier: ^5.1.0
         version: 5.1.0
+      finalhandler:
+        specifier: ^1.3.1
+        version: 1.3.1
       firebase:
         specifier: ^12.1.0
         version: 12.1.0
@@ -77,6 +98,15 @@ importers:
       helmet:
         specifier: ^7.1.0
         version: 7.2.0
+      http-errors:
+        specifier: ^2.0.0
+        version: 2.0.0
+      iconv-lite:
+        specifier: ^0.4.24
+        version: 0.4.24
+      media-typer:
+        specifier: ^0.3.0
+        version: 0.3.0
       merge-descriptors:
         specifier: ^1.0.3
         version: 1.0.3
@@ -107,6 +137,9 @@ importers:
       range-parser:
         specifier: ^1.2.1
         version: 1.2.1
+      raw-body:
+        specifier: ^2.5.2
+        version: 2.5.2
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -143,6 +176,12 @@ importers:
       type-is:
         specifier: ^1.6.18
         version: 1.6.18
+      unpipe:
+        specifier: ^1.0.0
+        version: 1.0.0
+      utils-merge:
+        specifier: ^1.0.1
+        version: 1.0.1
       vary:
         specifier: ^1.1.2
         version: 1.1.2
@@ -2492,6 +2531,10 @@ packages:
     resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
     engines: {'0': node >= 6.0}
 
+  content-disposition@0.5.4:
+    resolution: {integrity: sha512-FveZTNuGw04cxlAiWbzi6zTAL/lhehaWbTtgluJh4/E95DqMwTmha3KZN1aAWA8cFIhHzMZUvLevkw5Rqk+tSQ==}
+    engines: {node: '>= 0.6'}
+
   content-disposition@1.0.0:
     resolution: {integrity: sha512-Au9nRL8VNUut/XSzbQA38+M78dzP4D+eqg3gfJHMIHHYa3bg067xj1KxMUWj+VULbiZMowKngFFbKczUrNJ1mg==}
     engines: {node: '>= 0.6'}
@@ -2848,6 +2891,10 @@ packages:
   filter-obj@1.1.0:
     resolution: {integrity: sha512-8rXg1ZnX7xzy2NGDVkBVaAy+lSlPNwad13BtgSlLuxfIslyt5Vg64U7tFcCt4WS1R0hvtnQybT/IyCkGZ3DpXQ==}
     engines: {node: '>=0.10.0'}
+
+  finalhandler@1.3.1:
+    resolution: {integrity: sha512-6BN9trH7bp3qvnrRyzsBz+g3lZxTNZTbVO2EV1CS0WIcDbawYVdYvGflME/9QP0h0pYlCDBCTjYa9nZzMDpyxQ==}
+    engines: {node: '>= 0.8'}
 
   finalhandler@2.1.0:
     resolution: {integrity: sha512-/t88Ty3d5JWQbWYgaOGCCYfXRwV1+be02WqYYlL6h0lEiUAMPM8o8qKGO01YIkOHzka2up08wvgYD0mDiI+q3Q==}
@@ -4157,6 +4204,10 @@ packages:
   utility-types@3.11.0:
     resolution: {integrity: sha512-6Z7Ma2aVEWisaL6TvBCy7P8rm2LQoPv6dJ7ecIaIixHcwfbJ0x7mWdbcwlIM5IGQxPZSFYeqRCqlOOeKoJYMkw==}
     engines: {node: '>= 4'}
+
+  utils-merge@1.0.1:
+    resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
+    engines: {node: '>= 0.4.0'}
 
   uuid@11.1.0:
     resolution: {integrity: sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A==}
@@ -6743,6 +6794,10 @@ snapshots:
       readable-stream: 3.6.2
       typedarray: 0.0.6
 
+  content-disposition@0.5.4:
+    dependencies:
+      safe-buffer: 5.2.1
+
   content-disposition@1.0.0:
     dependencies:
       safe-buffer: 5.2.1
@@ -7088,6 +7143,18 @@ snapshots:
       to-regex-range: 5.0.1
 
   filter-obj@1.1.0: {}
+
+  finalhandler@1.3.1:
+    dependencies:
+      debug: 2.6.9
+      encodeurl: 2.0.0
+      escape-html: 1.0.3
+      on-finished: 2.4.1
+      parseurl: 1.3.3
+      statuses: 2.0.1
+      unpipe: 1.0.0
+    transitivePeerDependencies:
+      - supports-color
 
   finalhandler@2.1.0:
     dependencies:
@@ -8585,6 +8652,8 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   utility-types@3.11.0: {}
+
+  utils-merge@1.0.1: {}
 
   uuid@11.1.0: {}
 
