@@ -1396,6 +1396,69 @@ Format your response as JSON:
   }
 });
 
+// Get all business flows for user endpoint
+app.get("/api/business-flow/:userId/all", async (req, res) => {
+  console.log('📋 Get all business flows endpoint called');
+  
+  try {
+    const userId = req.params.userId;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    console.log('👤 Fetching all business flows for user:', userId);
+
+    console.log('🔥 Calling initializeFirebase for get all business flows...');
+    const { firestore } = await initializeFirebase();
+    if (!firestore) {
+      console.log('⚠️ Firestore not available, cannot fetch business flows');
+      return res.status(500).json({ error: 'Firebase not initialized, cannot fetch business flows' });
+    }
+
+    console.log('📦 Using Firebase Client SDK for get all business flows...');
+    const { collection, getDocs, query, where, orderBy } = await import('firebase/firestore');
+
+    // Get all business flows for the user, ordered by creation date (newest first)
+    const businessFlowsQuery = query(
+      collection(firestore, 'business_flow'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(businessFlowsQuery);
+    
+    const flows = [];
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      flows.push({
+        id: doc.id,
+        ...data,
+        // Convert Firestore timestamps to ISO strings for frontend
+        created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
+        updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at
+      });
+    });
+
+    console.log('✅ Found business flows:', {
+      userId,
+      flowsCount: flows.length,
+      flowTitles: flows.map(f => f.title)
+    });
+
+    res.json({ 
+      success: true, 
+      flows: flows 
+    });
+  } catch (error) {
+    console.error('❌ Error fetching business flows:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch business flows',
+      details: error.message
+    });
+  }
+});
+
 // Catch-all for unmatched API routes
 app.use((req, res) => {
   console.log('❓ Unmatched API route:', req.path);
@@ -1419,6 +1482,7 @@ console.log('  - GET /api/dashboard/:userId/products');
 console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - POST /api/business-flow/:userId/save');
+console.log('  - GET /api/business-flow/:userId/all');
 console.log('  - POST /api/questionnaire/generate-flow');
 console.log('  - GET /api/social/platforms');
 console.log('  - POST /api/social/generate-post');
