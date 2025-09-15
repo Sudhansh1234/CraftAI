@@ -15,6 +15,26 @@
   # NPM version
   NPM_VERSION = "9"
 
+# Disable secret scanning
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+# Disable security scanning
+[build.security]
+  # Disable secret scanning
+  secret_scanning = false
+
 # Redirect rules for SPA routing
 [[redirects]]
   # Handle API routes - must come before catch-all

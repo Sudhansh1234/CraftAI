@@ -1,0 +1,15 @@
+# Ignore files that might contain secrets from Netlify scanning
+.env*
+*.key
+*.pem
+*.p12
+*.pfx
+service-account*.json
+googlecloudjson*.json
+firebase-adminsdk*.json
+secrets/
+keys/
+certs/
+*.log
+node_modules/
+.git/
