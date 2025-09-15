@@ -515,7 +515,7 @@ app.use((req, res) => {
   });
 });
 
-// Export the serverless handler
+// Export the serverless handler with timeout configuration
 console.log('🚀 API setup complete, exporting serverless handler');
 console.log('📋 Available endpoints:');
 console.log('  - GET /api/health');
@@ -529,4 +529,9 @@ console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests on Netlify!');
 
-module.exports.handler = serverless(app);
+// Configure serverless with timeout
+const handler = serverless(app, {
+  timeout: 30 // 30 seconds timeout
+});
+
+module.exports.handler = handler;

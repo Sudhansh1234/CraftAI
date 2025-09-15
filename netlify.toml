@@ -49,11 +49,6 @@
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-# Function configuration
-[functions]
-  # Timeout for functions (in seconds)
-  timeout = 30
-
 # Environment variables (these will be set in Netlify dashboard)
 # [build.environment]
 #   VITE_FIREBASE_API_KEY = "your-firebase-api-key"
