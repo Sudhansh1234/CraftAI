@@ -78,13 +78,13 @@ async function initializeFirebase() {
       }
     });
 
-    // Set 5 second timeout for Firebase initialization (very aggressive)
-    console.log('⏰ Setting 5-second timeout for Firebase initialization...');
+    // Set 10 second timeout for Firebase initialization (more reasonable for Netlify)
+    console.log('⏰ Setting 10-second timeout for Firebase initialization...');
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.error('⏰ Firebase initialization timeout after 5 seconds');
+        console.error('⏰ Firebase initialization timeout after 10 seconds');
         reject(new Error('Firebase initialization timeout'));
-      }, 5000);
+      }, 10000);
     });
 
     console.log('🏁 Racing Firebase init vs timeout...');
@@ -317,13 +317,13 @@ app.get("/api/dashboard/:userId", async (req, res) => {
       }
     });
 
-    // Set 8 second timeout for Firebase operations (more aggressive)
-    console.log('⏰ Setting 8-second timeout for Firebase operations...');
+    // Set 15 second timeout for Firebase operations (more reasonable for Netlify)
+    console.log('⏰ Setting 15-second timeout for Firebase operations...');
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        console.error('⏰ Firebase operation timeout after 8 seconds');
+        console.error('⏰ Firebase operation timeout after 15 seconds');
         reject(new Error('Firebase operation timeout'));
-      }, 8000);
+      }, 15000);
     });
 
     console.log('🏁 Racing Firebase fetch vs timeout...');
@@ -467,6 +467,54 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
   } catch (error) {
     console.error('❌ Business flow charts API error:', error);
     res.status(500).json({ error: 'Failed to fetch charts', details: error.message });
+  }
+});
+
+// Business flow latest endpoint
+app.get("/api/business-flow/:userId/latest", async (req, res) => {
+  console.log('📈 Business flow latest endpoint called');
+  console.log('👤 User ID:', req.params.userId);
+
+  try {
+    const userId = req.params.userId;
+    console.log('🔥 Calling initializeFirebase for latest business flow...');
+    const { firestore } = await initializeFirebase();
+    if (!firestore) {
+      console.log('⚠️ Firestore not available, using sample latest flow');
+      return res.json({
+        id: 'sample-latest-1',
+        name: 'Sample Latest Business Flow',
+        nodes: [],
+        edges: [],
+        createdAt: new Date().toISOString(),
+        dataSource: 'sample'
+      });
+    }
+
+    console.log('🔍 Fetching latest business flow for user:', userId);
+    const flowsRef = collection(firestore, 'businessFlowCharts');
+    const latestQuery = query(
+      flowsRef, 
+      where('userId', '==', userId), 
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    );
+    const latestSnapshot = await getDocs(latestQuery);
+    
+    if (latestSnapshot.empty) {
+      console.log('📭 No business flows found for user');
+      return res.json({
+        message: 'No business flows found',
+        dataSource: 'firebase'
+      });
+    }
+
+    const latestFlow = { id: latestSnapshot.docs[0].id, ...latestSnapshot.docs[0].data() };
+    console.log('✅ Latest business flow fetched:', latestFlow.id);
+    res.json({ ...latestFlow, dataSource: 'firebase' });
+  } catch (error) {
+    console.error('❌ Business flow latest API error:', error);
+    res.status(500).json({ error: 'Failed to fetch latest business flow', details: error.message });
   }
 });
 

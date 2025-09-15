@@ -215,8 +215,8 @@ export function AIRecommendations({ className }: AIRecommendationsProps) {
             <p className="text-sm text-muted-foreground">AI recommendations are generated manually or after adding sales/products</p>
           </div>
         ) : (
-          allRecommendations.map((rec) => (
-            <div key={rec.id} className="p-4 border rounded-lg hover:shadow-soft transition-all">
+          allRecommendations.map((rec, index) => (
+            <div key={rec.id || `rec-${index}`} className="p-4 border rounded-lg hover:shadow-soft transition-all">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
