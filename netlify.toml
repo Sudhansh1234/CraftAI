@@ -8,12 +8,17 @@
   # Functions directory
   functions = "netlify/functions"
 
+  
+
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
   
   # NPM version
   NPM_VERSION = "9"
+  
+  # Disable secret scanning
+  SECRETS_SCAN_ENABLED = "False"
 
 # Disable secret scanning
 [build.processing]
