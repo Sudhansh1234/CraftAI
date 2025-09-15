@@ -111,12 +111,14 @@
     "serverless-http": "^3.2.0",
     "setprototypeof": "^1.2.0",
     "sharp": "^0.34.3",
+    "side-channel": "^1.1.0",
     "statuses": "^2.0.1",
     "toidentifier": "^1.0.1",
     "type-is": "^1.6.18",
     "unpipe": "^1.0.0",
     "utils-merge": "^1.0.1",
     "vary": "^1.1.2",
+    "wrappy": "^1.0.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
