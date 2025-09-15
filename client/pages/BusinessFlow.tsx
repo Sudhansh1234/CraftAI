@@ -1721,7 +1721,7 @@ const BusinessFlow: React.FC = () => {
                   <div className="text-gray-800 leading-relaxed whitespace-pre-line">
                     {currentSelectedNode.data.detailedExplanation ? (
                       <div className="space-y-2">
-                        {currentSelectedNode.data.detailedExplanation.split('\n').map((line, index) => {
+                        {(currentSelectedNode.data.detailedExplanation || '').split('\n').map((line, index) => {
                           const isServiceSuggestion = line.includes('AI Image Generator') || 
                                                     line.includes('AI Marketing Assistant') || 
                                                     line.includes('Business Plan Builder') || 
@@ -1839,7 +1839,7 @@ const BusinessFlow: React.FC = () => {
                     <div className="text-gray-800 leading-relaxed">
                       {currentSelectedNode.data.meta.locationInsights ? (
                         <div className="space-y-2">
-                          {currentSelectedNode.data.meta.locationInsights.split('\n').map((line, index) => {
+                          {(currentSelectedNode.data.meta.locationInsights || '').split('\n').map((line, index) => {
                             const isServiceSuggestion = line.includes('AI Image Generator') || 
                                                       line.includes('AI Marketing Assistant') || 
                                                       line.includes('Business Plan Builder') || 

@@ -160,7 +160,13 @@ export default function Dashboard() {
     
     // Group sales by date
     const salesByDate = salesMetrics.reduce((acc, metric) => {
-      const date = metric.sale_date ? metric.sale_date.split('T')[0] : metric.date_recorded?.split('T')[0] || new Date().toISOString().split('T')[0];
+      let date = new Date().toISOString().split('T')[0]; // Default to today
+      
+      if (metric.sale_date && typeof metric.sale_date === 'string') {
+        date = metric.sale_date.split('T')[0];
+      } else if (metric.date_recorded && typeof metric.date_recorded === 'string') {
+        date = metric.date_recorded.split('T')[0];
+      }
       
       if (!acc[date]) {
         acc[date] = { sales: 0, revenue: 0 };

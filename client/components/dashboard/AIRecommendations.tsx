@@ -223,7 +223,7 @@ export function AIRecommendations({ className }: AIRecommendationsProps) {
                     <span className="text-lg">{getCategoryIcon(rec.category)}</span>
                     <div className="flex-1">
                       <h4 className="font-semibold text-foreground text-sm">
-                        {rec.title.split(':').length > 1 ? (
+                        {rec.title && typeof rec.title === 'string' && rec.title.split(':').length > 1 ? (
                           <>
                             <span className="text-ai-primary font-bold">
                               {rec.title.split(':')[0]}:
@@ -233,7 +233,7 @@ export function AIRecommendations({ className }: AIRecommendationsProps) {
                             </span>
                           </>
                         ) : (
-                          rec.title
+                          rec.title || 'No title available'
                         )}
                       </h4>
                     </div>
