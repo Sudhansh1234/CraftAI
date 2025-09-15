@@ -11,6 +11,10 @@
   ],
   "routes": [
     {
+      "src": "/api/dashboard/(.*)",
+      "dest": "/api/dashboard.ts"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
