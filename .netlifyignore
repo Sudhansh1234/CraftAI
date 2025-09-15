@@ -13,3 +13,9 @@ certs/
 *.log
 node_modules/
 .git/
+
+# Ignore specific files that contain environment variable references
+env.production.template
+server/routes/
+dist/
+*.mdc
