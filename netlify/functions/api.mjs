@@ -1025,12 +1025,29 @@ Generate a comprehensive business flow for this specific artisan profile.`;
     let text;
     if (typeof response.text === 'function') {
       text = response.text().trim();
+    } else if (response.response && response.response.candidates && response.response.candidates[0]) {
+      // New structure: response.response.candidates[0].content.parts[0].text
+      const candidate = response.response.candidates[0];
+      if (candidate.content && candidate.content.parts && candidate.content.parts[0]) {
+        text = candidate.content.parts[0].text.trim();
+      } else {
+        console.error('Unexpected candidate structure:', candidate);
+        throw new Error('Unexpected candidate structure from Gemini');
+      }
     } else if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      // Old structure: response.candidates[0].content.parts[0].text
       text = response.candidates[0].content.parts[0].text.trim();
     } else if (response.text) {
       text = response.text.trim();
     } else {
       console.error('Unexpected response structure:', response);
+      console.error('Response keys:', Object.keys(response));
+      if (response.response) {
+        console.error('Response.response keys:', Object.keys(response.response));
+        if (response.response.candidates && response.response.candidates[0]) {
+          console.error('First candidate keys:', Object.keys(response.response.candidates[0]));
+        }
+      }
       throw new Error('Unexpected response structure from Gemini');
     }
 
