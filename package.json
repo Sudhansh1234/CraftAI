@@ -34,7 +34,6 @@
     "@firebase/remote-config": "^0.6.6",
     "@firebase/storage": "^0.14.0",
     "@firebase/util": "^1.13.0",
-    "firebase": "^12.1.0",
     "@google-cloud/aiplatform": "^5.5.0",
     "@google-cloud/automl": "^5.1.0",
     "@google-cloud/bigquery": "^8.1.1",
