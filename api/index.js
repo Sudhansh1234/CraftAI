@@ -206,7 +206,7 @@ app.get("/api/social/platforms", (req, res) => {
 });
 
 // Catch-all for API routes
-app.get("/api/*", (req, res) => {
+app.get("*", (req, res) => {
   res.status(404).json({ error: "API endpoint not found", path: req.path });
 });
 
