@@ -23,14 +23,6 @@ async function initializeFirebase() {
     return { firebaseApp, firestore };
   }
 
-  console.log('🔧 Starting Firebase initialization...');
-  console.log('🔑 Firebase config check:');
-  console.log('  - API_KEY:', process.env.FIREBASE_API_KEY ? 'Set' : 'Not set');
-  console.log('  - AUTH_DOMAIN:', process.env.FIREBASE_AUTH_DOMAIN ? 'Set' : 'Not set');
-  console.log('  - PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set');
-  console.log('  - STORAGE_BUCKET:', process.env.FIREBASE_STORAGE_BUCKET ? 'Set' : 'Not set');
-  console.log('  - MESSAGING_SENDER_ID:', process.env.FIREBASE_MESSAGING_SENDER_ID ? 'Set' : 'Not set');
-  console.log('  - APP_ID:', process.env.FIREBASE_APP_ID ? 'Set' : 'Not set');
 
   // Quick check if Firebase config is missing
   if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_API_KEY) {
