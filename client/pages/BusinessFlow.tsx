@@ -2105,37 +2105,41 @@ const BusinessFlow: React.FC = () => {
 
       {/* Load Plan Modal */}
       {showLoadPlanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Load Business Plan</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+              <h3 className="text-lg font-semibold">Load Business Plan</h3>
+            </div>
             
             {availablePlans.length === 0 ? (
-              <div className="text-center py-8">
+              <div className="text-center py-8 px-6">
                 <p className="text-gray-500 dark:text-gray-400 mb-4">No saved plans found</p>
                 <Button onClick={() => setShowLoadPlanModal(false)} variant="outline">
                   Close
                 </Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {availablePlans.map((plan, index) => (
-                  <div
-                    key={plan.id || index}
-                    className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
-                    onClick={() => handleSelectPlan(plan.id)}
-                  >
-                    <h4 className="font-medium">{plan.title || 'Untitled Plan'}</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Created: {new Date(plan.created_at).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Nodes: {Array.isArray(plan.nodes) ? plan.nodes.length : Object.keys(plan.nodes || {}).length}
-                    </p>
-                  </div>
-                ))}
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 overflow-y-auto p-6 space-y-3">
+                  {availablePlans.map((plan, index) => (
+                    <div
+                      key={plan.id || index}
+                      className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      onClick={() => handleSelectPlan(plan.id)}
+                    >
+                      <h4 className="font-medium">{plan.title || 'Untitled Plan'}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Created: {new Date(plan.created_at).toLocaleDateString()}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Nodes: {Array.isArray(plan.nodes) ? plan.nodes.length : Object.keys(plan.nodes || {}).length}
+                      </p>
+                    </div>
+                  ))}
+                </div>
                 
-                <div className="flex gap-2 pt-4">
-                  <Button onClick={() => setShowLoadPlanModal(false)} variant="outline" className="flex-1">
+                <div className="p-6 border-t border-gray-200 dark:border-gray-600">
+                  <Button onClick={() => setShowLoadPlanModal(false)} variant="outline" className="w-full">
                     Cancel
                   </Button>
                 </div>
