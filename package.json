@@ -83,7 +83,8 @@
     "iconv-lite": "^0.4.24",
     "raw-body": "^2.5.2",
     "unpipe": "^1.0.0",
-    "media-typer": "^0.3.0"
+    "media-typer": "^0.3.0",
+    "cookie-signature": "^1.0.6"
   },
   "devDependencies": {
     "@hookform/resolvers": "^5.2.1",
