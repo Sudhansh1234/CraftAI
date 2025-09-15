@@ -401,7 +401,22 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
 
   try {
     const userId = req.params.userId;
-    const metricData = req.body;
+    let metricData = req.body;
+
+    // Handle case where body is received as Buffer
+    if (Buffer.isBuffer(metricData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        metricData = JSON.parse(metricData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
 
     console.log('🔍 Raw request details:', {
       method: req.method,
@@ -738,7 +753,22 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
 
   try {
     const userId = req.params.userId;
-    const flowData = req.body;
+    let flowData = req.body;
+
+    // Handle case where body is received as Buffer
+    if (Buffer.isBuffer(flowData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        flowData = JSON.parse(flowData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
 
     console.log('📝 Business flow save request data:', {
       userId,
