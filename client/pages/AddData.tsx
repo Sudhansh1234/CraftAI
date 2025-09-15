@@ -196,19 +196,24 @@ export default function AddData() {
     setLoading(true);
 
     try {
+      const requestData = {
+        metricType: 'sales',
+        value: totalSaleValue, // Automatically calculated total sale value
+        productName: salesData.product_name,
+        quantity: parseInt(salesData.quantity),
+        price: totalSaleValue / parseInt(salesData.quantity), // Calculate price per unit
+        date: salesData.sale_date || new Date().toISOString().split('T')[0]
+      };
+
+      console.log('🚀 Sending sales data:', requestData);
+      console.log('📝 Sales form data:', salesData);
+
       const response = await fetch(`/api/dashboard/${currentUser.uid}/add-metric`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          metricType: 'sales',
-          value: totalSaleValue, // Automatically calculated total sale value
-          productName: salesData.product_name,
-          quantity: parseInt(salesData.quantity),
-          price: totalSaleValue / parseInt(salesData.quantity), // Calculate price per unit
-          date: salesData.sale_date || new Date().toISOString().split('T')[0]
-        })
+        body: JSON.stringify(requestData)
       });
 
       if (!response.ok) {
@@ -274,20 +279,25 @@ export default function AddData() {
     setLoading(true);
 
     try {
+      const requestData = {
+        metricType: 'products',
+        value: parseFloat(productData.selling_price), // Required field
+        productName: productData.product_name,
+        materialCost: parseFloat(productData.material_cost),
+        sellingPrice: parseFloat(productData.selling_price),
+        quantity: parseInt(productData.quantity),
+        date: productData.added_date || new Date().toISOString().split('T')[0]
+      };
+
+      console.log('🚀 Sending product data:', requestData);
+      console.log('📝 Product form data:', productData);
+
       const response = await fetch(`/api/dashboard/${currentUser.uid}/add-metric`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          metricType: 'products',
-          value: parseFloat(productData.selling_price), // Required field
-          productName: productData.product_name,
-          materialCost: parseFloat(productData.material_cost),
-          sellingPrice: parseFloat(productData.selling_price),
-          quantity: parseInt(productData.quantity),
-          date: productData.added_date || new Date().toISOString().split('T')[0]
-        })
+        body: JSON.stringify(requestData)
       });
 
       if (!response.ok) {

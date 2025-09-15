@@ -395,10 +395,22 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   console.log('➕ Add metric endpoint called');
   console.log('👤 User ID:', req.params.userId);
+  console.log('🌐 Request origin:', req.headers.origin);
+  console.log('📋 Content-Type:', req.headers['content-type']);
+  console.log('📏 Content-Length:', req.headers['content-length']);
 
   try {
     const userId = req.params.userId;
     const metricData = req.body;
+
+    console.log('🔍 Raw request details:', {
+      method: req.method,
+      headers: req.headers,
+      bodyType: typeof req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : 'No body',
+      bodyContent: req.body,
+      rawBody: req.body
+    });
 
     console.log('📝 Add metric request data:', {
       userId,
@@ -411,6 +423,19 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       date: metricData.date,
       price: metricData.price
     });
+
+    // Check if request body is empty or invalid
+    if (!metricData || Object.keys(metricData).length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Request body is empty or invalid. Please check your form data and try again.',
+        debug: {
+          bodyType: typeof req.body,
+          bodyKeys: req.body ? Object.keys(req.body) : 'No body',
+          contentType: req.headers['content-type']
+        }
+      });
+    }
 
     if (!metricData.metricType) {
       return res.status(400).json({ 
