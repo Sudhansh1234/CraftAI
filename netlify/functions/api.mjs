@@ -250,17 +250,17 @@ app.get("/api/dashboard/:userId", async (req, res) => {
         if (businessMetrics.length === 0) {
           console.log('📈 No products/sales found, trying business_metrics fallback...');
           const metricsRef = collection(firestore, 'business_metrics');
-          const metricsQuery = query(
-            metricsRef,
+        const metricsQuery = query(
+          metricsRef, 
             where('user_id', '==', userId),
             orderBy('date_recorded', 'desc'),
             limit(20)
           );
-          const metricsSnapshot = await getDocs(metricsQuery);
+        const metricsSnapshot = await getDocs(metricsQuery);
           const fallbackMetrics = metricsSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          id: doc.id,
+          ...doc.data()
+        }));
           businessMetrics.push(...fallbackMetrics);
           console.log('✅ Fallback metrics processed:', fallbackMetrics.length);
         }
@@ -551,13 +551,13 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
         created_at: serverTimestamp(),
         updated_at: serverTimestamp()
       };
-      console.log('💾 Adding metric to Firestore:', metricDataWithTimestamp);
+    console.log('💾 Adding metric to Firestore:', metricDataWithTimestamp);
       docRef = await addDoc(collection(firestore, collectionName), metricDataWithTimestamp);
     }
 
     console.log('✅ Data added to', collectionName, 'with ID:', docRef.id);
 
-    res.status(201).json({
+    res.status(201).json({ 
       success: true,
       message: `${metricData.metricType} added successfully`,
       id: docRef.id,
@@ -699,12 +699,12 @@ app.get("/api/business-flow/:userId/latest", async (req, res) => {
         success: true,
         hasFlow: true,
         data: {
-          id: 'sample-latest-1',
-          name: 'Sample Latest Business Flow',
-          nodes: [],
-          edges: [],
+        id: 'sample-latest-1',
+        name: 'Sample Latest Business Flow',
+        nodes: [],
+        edges: [],
           created_at: new Date().toISOString(),
-          dataSource: 'sample'
+        dataSource: 'sample'
         }
       });
     }
@@ -896,9 +896,34 @@ app.post("/api/questionnaire/generate-flow", async (req, res) => {
     // Import Google Cloud Vertex AI
     const { VertexAI } = await import('@google-cloud/vertexai');
     
+    // Debug: Check available credentials
+    console.log('🔐 Checking Google Cloud credentials...');
+    console.log('  - GOOGLE_CLOUD_PROJECT_ID:', !!process.env.GOOGLE_CLOUD_PROJECT_ID);
+    console.log('  - GOOGLE_CLOUD_CLIENT_EMAIL:', !!process.env.GOOGLE_CLOUD_CLIENT_EMAIL);
+    console.log('  - GOOGLE_CLOUD_PRIVATE_KEY:', !!process.env.GOOGLE_CLOUD_PRIVATE_KEY);
+    console.log('  - GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+
+    // Create credentials object from environment variables
+    const credentials = {
+      type: "service_account",
+      project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || "googleapis.com"
+    };
+    
     const vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID,
       location: 'us-central1',
+      googleAuthOptions: {
+        credentials: credentials
+      }
     });
 
     const model = vertexAI.getGenerativeModel({
@@ -1077,7 +1102,7 @@ app.get("/api/social/platforms", (req, res) => {
     ];
 
     res.json({ platforms });
-    console.log('✅ Social platforms response sent');
+  console.log('✅ Social platforms response sent');
   } catch (error) {
     console.error('❌ Error getting platforms:', error);
     res.status(500).json({ 
@@ -1126,9 +1151,34 @@ app.post("/api/social/generate-post", async (req, res) => {
     // Import Google Cloud Vertex AI
     const { VertexAI } = await import('@google-cloud/vertexai');
     
+    // Debug: Check available credentials
+    console.log('🔐 Checking Google Cloud credentials...');
+    console.log('  - GOOGLE_CLOUD_PROJECT_ID:', !!process.env.GOOGLE_CLOUD_PROJECT_ID);
+    console.log('  - GOOGLE_CLOUD_CLIENT_EMAIL:', !!process.env.GOOGLE_CLOUD_CLIENT_EMAIL);
+    console.log('  - GOOGLE_CLOUD_PRIVATE_KEY:', !!process.env.GOOGLE_CLOUD_PRIVATE_KEY);
+    console.log('  - GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS);
+
+    // Create credentials object from environment variables
+    const credentials = {
+      type: "service_account",
+      project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || "googleapis.com"
+    };
+    
     const vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID,
       location: 'us-central1',
+      googleAuthOptions: {
+        credentials: credentials
+      }
     });
 
     const model = vertexAI.getGenerativeModel({
