@@ -1,4 +1,4 @@
-// Netlify function for API routes - Using Firebase Admin SDK for better serverless compatibility
+// Netlify function for API routes - Using Firebase Client SDK
 
 const express = require('express');
 const serverless = require('serverless-http');
@@ -8,12 +8,11 @@ console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Environment:', process.env.NODE_ENV || 'production');
 
-// Firebase configuration - Using Firebase Admin SDK for serverless environments
-
+// Firebase Client SDK configuration
 let firebaseApp = null;
 let firestore = null;
 
-// Firebase Admin SDK initialization (better for serverless)
+// Initialize Firebase Client SDK
 async function initializeFirebase() {
   console.log('🔥 initializeFirebase called');
 
@@ -22,54 +21,58 @@ async function initializeFirebase() {
     return { firebaseApp, firestore };
   }
 
-  console.log('🔧 Starting Firebase Admin SDK initialization...');
+  console.log('🔧 Starting Firebase Client SDK initialization...');
   console.log('🔑 Firebase config check:');
-  console.log('  - PROJECT_ID:', process.env.FIREBASE_PROJECT_ID ? 'Set' : 'Not set');
-  console.log('  - PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? 'Set' : 'Not set');
-  console.log('  - CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? 'Set' : 'Not set');
+  console.log('  - PROJECT_ID:', process.env.VITE_FIREBASE_PROJECT_ID ? 'Set' : 'Not set');
+  console.log('  - API_KEY:', process.env.VITE_FIREBASE_API_KEY ? 'Set' : 'Not set');
 
   // Quick check if Firebase config is missing
-  if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_PRIVATE_KEY) {
-    console.log('⚠️ Firebase Admin config missing, using sample data');
+  if (!process.env.VITE_FIREBASE_PROJECT_ID || !process.env.VITE_FIREBASE_API_KEY) {
+    console.log('⚠️ Firebase config missing, using sample data');
     return { firebaseApp: null, firestore: null };
   }
 
   try {
-    console.log('📦 Importing Firebase Admin SDK...');
-    const admin = require('firebase-admin');
-    console.log('✅ Firebase Admin SDK imported successfully');
+    console.log('📦 Importing Firebase Client SDK...');
+    const { initializeApp, getApps } = await import('firebase/app');
+    const { getFirestore } = await import('firebase/firestore');
+    console.log('✅ Firebase Client SDK imported successfully');
 
     // Check if Firebase is already initialized
     console.log('🔍 Checking for existing Firebase apps...');
-    const apps = admin.apps;
+    const apps = getApps();
     console.log('📊 Found', apps.length, 'existing Firebase apps');
 
     if (apps.length > 0) {
       console.log('♻️ Using existing Firebase app');
       firebaseApp = apps[0];
     } else {
-      console.log('🆕 Creating new Firebase Admin app...');
-      const serviceAccount = {
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+      console.log('🆕 Creating new Firebase app...');
+      const firebaseConfig = {
+        apiKey: process.env.VITE_FIREBASE_API_KEY,
+        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.VITE_FIREBASE_APP_ID
       };
 
-      console.log('🔧 Initializing Firebase Admin with service account');
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: process.env.FIREBASE_PROJECT_ID
+      console.log('🔧 Initializing Firebase with config:', {
+        ...firebaseConfig,
+        apiKey: firebaseConfig.apiKey ? 'Set' : 'Not set'
       });
-      console.log('✅ Firebase Admin app initialized successfully');
+
+      firebaseApp = initializeApp(firebaseConfig);
+      console.log('✅ Firebase app initialized successfully');
     }
 
     console.log('🗄️ Getting Firestore instance...');
-    firestore = admin.firestore();
+    firestore = getFirestore(firebaseApp);
     console.log('✅ Firestore instance created');
 
     return { firebaseApp, firestore };
   } catch (error) {
-    console.error('❌ Firebase Admin initialization failed:', error);
+    console.error('❌ Firebase Client SDK initialization failed:', error);
     console.error('❌ Error details:', {
       message: error.message,
       stack: error.stack,
@@ -103,7 +106,7 @@ app.get("/api/health", (req, res) => {
 
 // Simple ping endpoint
 app.get("/api/ping", (req, res) => {
-  res.json({ message: "Hello from Netlify API with Firebase Admin SDK" });
+  res.json({ message: "Hello from Netlify API (client-side Firebase)" });
 });
 
 // Dashboard test endpoint
@@ -112,41 +115,26 @@ app.get("/api/dashboard/test", async (req, res) => {
   console.log('📅 Request timestamp:', new Date().toISOString());
 
   try {
-    console.log('🔥 Calling initializeFirebase...');
-    const { firebaseApp, firestore } = await initializeFirebase();
-    console.log('✅ Firebase initialization result:', {
-      firebaseApp: firebaseApp ? 'Present' : 'Null',
-      firestore: firestore ? 'Present' : 'Null'
-    });
-
     const response = {
-      message: 'Dashboard API is working',
+      message: 'Dashboard API is working (using client-side Firebase)',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'production',
-      firebaseStatus: firebaseApp ? 'Connected' : 'Not connected',
-      firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'Not set'
+      firebaseStatus: 'Client-side only',
+      firebaseProjectId: process.env.VITE_FIREBASE_PROJECT_ID || 'Not set'
     };
 
     console.log('✅ Dashboard test response:', response);
     res.json(response);
   } catch (error) {
     console.error('❌ Dashboard test error:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
-    });
-
-    const errorResponse = {
+    res.status(500).json({
       error: 'Dashboard test failed',
       details: error.message
-    };
-    console.log('❌ Sending error response:', errorResponse);
-    res.status(500).json(errorResponse);
+    });
   }
 });
 
-// Dashboard data endpoint with Firebase Admin SDK
+// Dashboard data endpoint with Firebase Client SDK
 app.get("/api/dashboard/:userId", async (req, res) => {
   console.log('📊 Dashboard endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -212,16 +200,21 @@ app.get("/api/dashboard/:userId", async (req, res) => {
     console.log('🔥 Starting Firebase data fetch...');
     const fetchPromise = new Promise(async (resolve, reject) => {
       try {
-        console.log('📦 Using Firebase Admin SDK for Firestore operations...');
-        console.log('✅ Firestore Admin SDK ready');
+        console.log('📦 Using Firebase Client SDK for Firestore operations...');
+        const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+        console.log('✅ Firestore functions imported');
 
         // Fetch insights
         console.log('🔍 Fetching insights for user:', userId);
-        const insightsSnapshot = await firestore.collection('insights')
-          .where('userId', '==', userId)
-          .orderBy('createdAt', 'desc')
-          .limit(10)
-          .get();
+        const insightsRef = collection(firestore, 'insights');
+        const insightsQuery = query(
+          insightsRef, 
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(10)
+        );
+        console.log('📊 Executing insights query...');
+        const insightsSnapshot = await getDocs(insightsQuery);
         console.log('📊 Insights query completed, found', insightsSnapshot.docs.length, 'documents');
         const insights = insightsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -231,11 +224,15 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 
         // Fetch business metrics
         console.log('📈 Fetching business metrics for user:', userId);
-        const metricsSnapshot = await firestore.collection('businessMetrics')
-          .where('userId', '==', userId)
-          .orderBy('createdAt', 'desc')
-          .limit(5)
-          .get();
+        const metricsRef = collection(firestore, 'businessMetrics');
+        const metricsQuery = query(
+          metricsRef, 
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+        );
+        console.log('📊 Executing metrics query...');
+        const metricsSnapshot = await getDocs(metricsQuery);
         console.log('📊 Metrics query completed, found', metricsSnapshot.docs.length, 'documents');
         const businessMetrics = metricsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -251,7 +248,7 @@ app.get("/api/dashboard/:userId", async (req, res) => {
             totalInsights: insights.length,
             highPriorityCount: insights.filter(i => i.priority === 'high').length,
             actionableCount: insights.filter(i => i.actionable).length,
-            weeklyGrowth: 0,
+            weeklyGrowth: 0, // Calculate this based on your data
             topCategories: [...new Set(insights.map(i => i.category))].slice(0, 5)
           },
           recommendations: {
@@ -303,47 +300,25 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 
   } catch (error) {
     console.error('❌ Dashboard API error:', error);
-    console.error('❌ Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      userId: req.params.userId
-    });
-
-    const errorResponse = {
+    res.status(500).json({
       error: 'Failed to fetch dashboard data',
       details: error.message,
       userId: req.params.userId,
       timestamp: new Date().toISOString()
-    };
-
-    console.log('❌ Sending error response:', errorResponse);
-    res.status(500).json(errorResponse);
+    });
   }
 });
 
-// Add metric endpoint with Firebase Admin SDK
+// Add metric endpoint with Firebase Client SDK
 app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   console.log('➕ Add metric endpoint called');
   console.log('👤 User ID:', req.params.userId);
-  console.log('📦 Request body type:', typeof req.body);
-  console.log('📦 Request body:', req.body);
 
   try {
     const userId = req.params.userId;
+    const metricData = req.body;
 
-    // Parse body if it's a Buffer
-    let parsedBody = req.body;
-    if (Buffer.isBuffer(req.body)) {
-      console.log('🔧 Parsing Buffer body...');
-      parsedBody = JSON.parse(req.body.toString());
-      console.log('✅ Parsed body:', parsedBody);
-    }
-
-    const { metricType, value, date, productName, price, quantity, materialCost, sellingPrice } = parsedBody;
-
-    if (!metricType || !value) {
-      console.log('❌ Missing metricType or value');
+    if (!metricData.metricType || !metricData.value) {
       return res.status(400).json({ error: 'Missing metricType or value' });
     }
 
@@ -354,33 +329,34 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       return res.status(500).json({ error: 'Firebase not initialized, cannot add metric' });
     }
 
-    console.log('📦 Using Firebase Admin SDK for add-metric...');
+    console.log('📦 Using Firebase Client SDK for add-metric...');
+    const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
 
-    const metricData = {
-      userId,
-      metricType,
-      value,
-      date: date ? new Date(date) : new Date(),
-      productName,
-      price,
-      quantity,
-      materialCost,
-      sellingPrice,
-      createdAt: new Date()
+    const metricDataWithTimestamp = {
+      ...metricData,
+      userId: userId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     };
 
-    console.log('💾 Adding metric to Firestore:', metricData);
-    const docRef = await firestore.collection('businessMetrics').add(metricData);
+    console.log('💾 Adding metric to Firestore:', metricDataWithTimestamp);
+    const docRef = await addDoc(collection(firestore, 'businessMetrics'), metricDataWithTimestamp);
     console.log('✅ Metric added with ID:', docRef.id);
 
-    res.status(201).json({ message: 'Metric added successfully', id: docRef.id, data: metricData });
+    res.status(201).json({ 
+      message: 'Metric added successfully', 
+      id: docRef.id,
+      userId: userId,
+      metric: metricDataWithTimestamp,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error('❌ Add metric API error:', error);
     res.status(500).json({ error: 'Failed to add metric', details: error.message });
   }
 });
 
-// Get products endpoint with Firebase Admin SDK
+// Get products endpoint with Firebase Client SDK
 app.get("/api/dashboard/:userId/products", async (req, res) => {
   console.log('🛍️ Get products endpoint called');
   console.log('👤 User ID:', req.params.userId);
@@ -400,10 +376,15 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     }
 
     console.log('🔍 Fetching products for user:', userId);
-    const productsSnapshot = await firestore.collection('products')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .get();
+    const { collection, getDocs, query, where, orderBy } = await import('firebase/firestore');
+    
+    const productsRef = collection(firestore, 'products');
+    const productsQuery = query(
+      productsRef, 
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const productsSnapshot = await getDocs(productsQuery);
     const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('✅ Products fetched:', products.length);
