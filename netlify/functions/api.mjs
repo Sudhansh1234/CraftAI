@@ -1,8 +1,8 @@
-// Netlify function for API routes - Using Firebase Client SDK
+// Netlify function for API routes - Using Firebase Client SDK (ES Modules)
 
-const express = require('express');
-const serverless = require('serverless-http');
-const cors = require('cors');
+import express from 'express';
+import serverless from 'serverless-http';
+import cors from 'cors';
 
 console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
@@ -511,8 +511,8 @@ console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests on Netlify!');
 
 // Configure serverless with timeout
-const handler = serverless(app, {
+const serverlessHandler = serverless(app, {
   timeout: 30 // 30 seconds timeout
 });
 
-module.exports.handler = handler;
+export const handler = serverlessHandler;
