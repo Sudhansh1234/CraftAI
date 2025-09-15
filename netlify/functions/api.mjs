@@ -801,6 +801,9 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
     console.log('📦 Using Firebase Client SDK for save business flow...');
     const { collection, addDoc, getDocs, query, where, orderBy, limit, updateDoc, doc, serverTimestamp } = await import('firebase/firestore');
 
+    // Generate a unique title if none provided or if it's the default
+    let finalTitle = flowData.title || 'Business Flow';
+    
     // Check for duplicate plan names (matching server logic)
     const existingFlowsSnapshot = await getDocs(query(
       collection(firestore, 'business_flow'),
@@ -808,22 +811,29 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
     ));
     
     const existingFlows = existingFlowsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    console.log('🔍 Checking for duplicate names:', {
+      proposedTitle: finalTitle,
+      existingTitles: existingFlows.map(f => f.title),
+      existingFlowsCount: existingFlows.length
+    });
+    
     const duplicateName = existingFlows.find(flow => 
-      flow.title && flow.title.toLowerCase().trim() === flowData.title.toLowerCase().trim()
+      flow.title && flow.title.toLowerCase().trim() === finalTitle.toLowerCase().trim()
     );
 
     if (duplicateName) {
-      return res.status(400).json({
-        success: false,
-        error: 'A plan with this name already exists',
-        message: 'Please choose a different name for your business plan'
-      });
+      // Auto-generate a unique name instead of failing
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      finalTitle = `${finalTitle} (${timestamp})`;
+      
+      console.log('⚠️ Duplicate name found, using unique title:', finalTitle);
     }
 
     // Create new business flow (always create new, don't update existing - matching server)
     const businessFlowData = {
       user_id: userId,
-      title: flowData.title || 'Business Flow',
+      title: finalTitle,
       nodes: flowData.nodes || [],
       edges: flowData.edges || [],
       userLocation: flowData.userLocation || null,
