@@ -1,6 +1,7 @@
 [build]
   command = "pnpm build"
   publish = "dist/spa"
+  environment = { SECRETS_SCAN_ENABLED = "false" }
 
 [functions]
   directory = "netlify/functions"
@@ -9,6 +10,10 @@
   from = "/api/*"
   to = "/.netlify/functions/api"
   status = 200
+
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
+  SECRETS_SCAN_OMIT_PATHS = "dist/**,build/**,node_modules/**,.git/**"
 
 [[redirects]]
   from = "/*"

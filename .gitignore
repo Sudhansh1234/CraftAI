@@ -8,8 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-# dist - commented out for Vercel deployment
-# dist-ssr
+dist
+dist-ssr
+dist/
 *.local
 .env.local
 # Keep .env.production for production deployments
@@ -31,3 +32,17 @@ googlecloudjson-fixed.json
 
 .config/
 !.env
+
+# Build outputs and maps
+*.map
+build/
+.netlify/
+.vercel/
+
+# Firebase
+.firebaserc
+firebase.json
+
+# Environment templates
+env.template
+.env.example
