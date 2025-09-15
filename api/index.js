@@ -20,13 +20,6 @@ try {
 
 const app = express();
 
-// Set timeout for all requests
-app.use((req, res, next) => {
-  req.setTimeout(25000); // 25 seconds timeout
-  res.setTimeout(25000);
-  next();
-});
-
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
