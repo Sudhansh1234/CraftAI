@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useAuth } from '@/contexts/AuthContext';
 import ReactFlow, {
   Node,
   Edge,
@@ -239,6 +240,7 @@ const BusinessFlow: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { selectedLanguage, getCurrentLanguage } = useLanguage();
+  const { currentUser } = useAuth();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -440,7 +442,8 @@ const BusinessFlow: React.FC = () => {
         // PRIORITY 2: If no generated flow, try to load saved business flow data
         console.log('No generated flow found, checking for saved flow...');
         
-        const userId = '00000000-0000-0000-0000-000000000001'; // TODO: Get from auth context
+        if (!currentUser) return;
+        const userId = currentUser.uid;
         const response = await fetch(`/api/business-flow/${userId}/latest`);
         const data = await response.json();
         
@@ -546,8 +549,8 @@ const BusinessFlow: React.FC = () => {
   useEffect(() => {
     const autoSave = async () => {
       // Only auto-save if we have nodes and we're not already saving
-      if (nodes.length > 0 && !isSaving) {
-        const userId = '00000000-0000-0000-0000-000000000001'; // TODO: Get from auth context
+      if (nodes.length > 0 && !isSaving && currentUser) {
+        const userId = currentUser.uid;
         
         const flowData = {
           title: chartTitle,
@@ -590,7 +593,7 @@ const BusinessFlow: React.FC = () => {
     // Debounce auto-save to avoid too many requests
     const timeoutId = setTimeout(autoSave, 2000);
     return () => clearTimeout(timeoutId);
-  }, [nodes, edges, chartTitle, userLocation, selectedLanguage, isSaving]);
+  }, [nodes, edges, chartTitle, userLocation, selectedLanguage, isSaving, currentUser]);
 
   const handleQuickAction = useCallback((action: any) => {
     console.log('Quick action triggered:', action);

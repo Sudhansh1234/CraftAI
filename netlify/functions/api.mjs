@@ -1087,47 +1087,64 @@ Generate a comprehensive business flow for this specific artisan profile.`;
       flowData.edges = [];
     }
 
+    console.log('🔍 Raw flow data from AI:', {
+      nodesCount: flowData.nodes.length,
+      edgesCount: flowData.edges.length,
+      firstNode: flowData.nodes[0],
+      firstEdge: flowData.edges[0]
+    });
+
     // Enhance flow data with positioning and meta information (matching server logic)
+    console.log('🔧 Starting node positioning...');
+    
     flowData.nodes = flowData.nodes.map((node, index) => {
-      // Create a more intelligent positioning algorithm
-      let position = node.position;
+      console.log(`📍 Processing node ${index}:`, { id: node.id, title: node.title, hasPosition: !!node.position });
       
-      if (!position) {
-        // Create a hierarchical layout based on node relationships
-        const isRoot = !flowData.edges.some(edge => edge.to === node.id);
-        const hasChildren = flowData.edges.some(edge => edge.from === node.id);
-        
-        if (isRoot) {
-          // Root nodes go at the top
-          position = { x: 0, y: 0 };
-        } else {
-          // Calculate position based on index and hierarchy
-          const row = Math.floor(index / 3);
-          const col = index % 3;
-          position = { 
-            x: col * 400 - 400, // Center the layout
-            y: row * 250 
-          };
-        }
+      // Always create position - don't rely on AI to provide it
+      let position;
+      
+      if (node.position && node.position.x !== undefined && node.position.y !== undefined) {
+        // Use existing position if valid
+        position = node.position;
+        console.log(`  ✅ Using existing position:`, position);
+      } else {
+        // Create a simple grid layout - more reliable than hierarchical
+        const row = Math.floor(index / 3);
+        const col = index % 3;
+        position = { 
+          x: col * 350, // 350px spacing
+          y: row * 200  // 200px vertical spacing
+        };
+        console.log(`  🆕 Generated position for node ${index}:`, position);
       }
       
-      return {
+      const enhancedNode = {
         ...node,
         position,
         meta: {
           status: 'not-started',
           ai_generated: true,
-          tags: [node.type],
+          tags: Array.isArray(node.tags) ? node.tags : [node.type || 'default'],
           priority: node.type === 'milestone' ? 'high' : 'medium',
           ...node.meta
         }
       };
+      
+      console.log(`  📦 Final node structure:`, {
+        id: enhancedNode.id,
+        title: enhancedNode.title,
+        position: enhancedNode.position,
+        type: enhancedNode.type
+      });
+      
+      return enhancedNode;
     });
 
     console.log('✅ Flow generated successfully:', {
       nodesCount: flowData.nodes.length,
       edgesCount: flowData.edges.length,
-      hasPositions: flowData.nodes.every(node => node.position)
+      hasPositions: flowData.nodes.every(node => node.position),
+      nodePositions: flowData.nodes.map(node => ({ id: node.id, position: node.position }))
     });
 
     res.json(flowData);
