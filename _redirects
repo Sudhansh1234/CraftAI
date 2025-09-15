@@ -1,0 +1,7 @@
+# Netlify redirects file for SPA routing
+
+# API routes - redirect to Netlify functions
+/api/* /.netlify/functions/api 200
+
+# All other routes - serve index.html for React Router
+/* /index.html 200

@@ -20,7 +20,9 @@
     "start": "node dist/server/node-build.mjs",
     "test": "vitest --run",
     "format.fix": "prettier --write .",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "preview": "vite preview",
+    "netlify:dev": "netlify dev"
   },
   "dependencies": {
     "@firebase/analytics": "^0.10.18",
