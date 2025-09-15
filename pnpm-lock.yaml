@@ -128,6 +128,9 @@ importers:
       multer:
         specifier: ^2.0.2
         version: 2.0.2
+      object-assign:
+        specifier: ^4.1.1
+        version: 4.1.1
       on-finished:
         specifier: ^2.4.1
         version: 2.4.1
