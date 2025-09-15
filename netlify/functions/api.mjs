@@ -400,8 +400,45 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
     const userId = req.params.userId;
     const metricData = req.body;
 
-    if (!metricData.metricType || !metricData.value) {
-      return res.status(400).json({ error: 'Missing metricType or value' });
+    console.log('📝 Add metric request data:', {
+      userId,
+      metricType: metricData.metricType,
+      productName: metricData.productName,
+      value: metricData.value,
+      sellingPrice: metricData.sellingPrice,
+      quantity: metricData.quantity
+    });
+
+    if (!metricData.metricType) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing metricType' 
+      });
+    }
+
+    // More specific validation based on metric type
+    if (metricData.metricType === 'products') {
+      if (!metricData.productName || !metricData.sellingPrice || isNaN(parseFloat(metricData.sellingPrice))) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing or invalid product data (productName, sellingPrice required)' 
+        });
+      }
+    } else if (metricData.metricType === 'sales') {
+      if (!metricData.productName || !metricData.quantity || !metricData.value) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing sales data (productName, quantity, value required)' 
+        });
+      }
+    } else {
+      // For other metric types, require value
+      if (!metricData.value) {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Missing value for metric type: ' + metricData.metricType 
+        });
+      }
     }
 
     console.log('🔥 Calling initializeFirebase for add-metric...');
