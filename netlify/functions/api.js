@@ -1,7 +1,7 @@
 // Netlify function for API routes - With Firebase and timeout prevention
-import express from 'express';
-import serverless from 'serverless-http';
-import cors from 'cors';
+const express = require('express');
+const serverless = require('serverless-http');
+const cors = require('cors');
 
 console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
@@ -38,8 +38,8 @@ async function initializeFirebase() {
 
   try {
     console.log('📦 Importing Firebase v9 modules...');
-    const { initializeApp, getApps } = await import('firebase/app');
-    const { getFirestore } = await import('firebase/firestore');
+    const { initializeApp, getApps } = require('firebase/app');
+    const { getFirestore } = require('firebase/firestore');
     console.log('✅ Firebase v9 modules imported successfully');
 
     // Check if Firebase is already initialized
@@ -223,7 +223,7 @@ app.get("/api/dashboard/:userId", async (req, res) => {
     const fetchPromise = new Promise(async (resolve, reject) => {
       try {
         console.log('📦 Importing Firestore functions...');
-        const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+        const { collection, getDocs, query, where, orderBy, limit } = require('firebase/firestore');
         console.log('✅ Firestore functions imported');
 
         // Fetch insights
@@ -375,7 +375,7 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
     }
 
     console.log('📦 Importing Firestore functions for add-metric...');
-    const { addDoc, collection, Timestamp } = await import('firebase/firestore');
+    const { addDoc, collection, Timestamp } = require('firebase/firestore');
 
     const metricData = {
       userId,
@@ -421,7 +421,7 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     }
 
     console.log('🔍 Fetching products for user:', userId);
-    const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
+    const { collection, query, where, orderBy, getDocs } = require('firebase/firestore');
     const productsRef = collection(firestore, 'products');
     const productsQuery = query(productsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
     const productsSnapshot = await getDocs(productsQuery);
@@ -455,7 +455,7 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
     }
 
     console.log('🔍 Fetching charts for user:', userId);
-    const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
+    const { collection, query, where, orderBy, getDocs } = require('firebase/firestore');
     const chartsRef = collection(firestore, 'businessFlowCharts');
     const chartsQuery = query(chartsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
     const chartsSnapshot = await getDocs(chartsQuery);
@@ -491,7 +491,7 @@ app.get("/api/business-flow/:userId/latest", async (req, res) => {
     }
 
     console.log('🔍 Fetching latest business flow for user:', userId);
-    const { collection, query, where, orderBy, limit, getDocs } = await import('firebase/firestore');
+    const { collection, query, where, orderBy, limit, getDocs } = require('firebase/firestore');
     const flowsRef = collection(firestore, 'businessFlowCharts');
     const latestQuery = query(
       flowsRef, 
@@ -554,4 +554,4 @@ console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests on Netlify!');
 
-export const handler = serverless(app);
+module.exports.handler = serverless(app);
