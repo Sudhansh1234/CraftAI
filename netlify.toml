@@ -17,13 +17,13 @@
 
 # Redirect rules for SPA routing
 [[redirects]]
-  # Handle API routes
+  # Handle API routes - must come before catch-all
   from = "/api/*"
   to = "/.netlify/functions/api"
   status = 200
 
-# Handle client-side routing for React Router
 [[redirects]]
+  # Handle client-side routing for React Router - catch-all must be last
   from = "/*"
   to = "/index.html"
   status = 200
@@ -53,9 +53,6 @@
 [functions]
   # Timeout for functions (in seconds)
   timeout = 30
-  
-  # Memory allocation
-  memory = 1024
 
 # Environment variables (these will be set in Netlify dashboard)
 # [build.environment]
