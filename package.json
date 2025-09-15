@@ -86,7 +86,9 @@
     "media-typer": "^0.3.0",
     "cookie-signature": "^1.0.6",
     "debug": "^4.3.7",
-    "once": "^1.4.0"
+    "once": "^1.4.0",
+    "router": "^2.1.1",
+    "array-flatten": "^3.0.0"
   },
   "devDependencies": {
     "@hookform/resolvers": "^5.2.1",
