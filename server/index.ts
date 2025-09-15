@@ -7,13 +7,13 @@ config({ path: path.resolve(process.cwd(), envFile) });
 
 import express from "express";
 import cors from "cors";
-import { handleDemo } from "./routes/demo";
-import { handleSpeechToText, handleSpeechHealth } from "./routes/speech";
-import { handleAIChat, handleAIHealth } from "./routes/ai";
-import { handleImageGenerate, handleImageEnhance, handleImageBgSwap } from "./routes/images";
-import { handleGenerateVideo, handleVideoStatus, handleVideoDownload, handleDebugVeo3 } from "./routes/videos";
-import { handleLocationSearch, generateLocationInsights, reverseGeocode } from "./routes/location";
-import * as businessFlowRoutes from "./routes/business-flow";
+import { handleDemo } from "./routes/demo.js";
+import { handleSpeechToText, handleSpeechHealth } from "./routes/speech.js";
+import { handleAIChat, handleAIHealth } from "./routes/ai.js";
+import { handleImageGenerate, handleImageEnhance, handleImageBgSwap } from "./routes/images.js";
+import { handleGenerateVideo, handleVideoStatus, handleVideoDownload, handleDebugVeo3 } from "./routes/videos.js";
+import { handleLocationSearch, generateLocationInsights, reverseGeocode } from "./routes/location.js";
+import * as businessFlowRoutes from "./routes/business-flow.js";
 import { 
   generateFlow, 
   saveAnswers, 
@@ -24,9 +24,9 @@ import {
   updateQuestionnaire, 
   deleteQuestionnaire,
   testQuestionnaire
-} from "./routes/questionnaire";
-import * as socialRoutes from "./routes/social";
-import * as dashboardRoutes from "./routes/dashboard";
+} from "./routes/questionnaire.js";
+import * as socialRoutes from "./routes/social.js";
+import * as dashboardRoutes from "./routes/dashboard.js";
 
 export function createServer() {
   const app = express();
@@ -58,7 +58,7 @@ export function createServer() {
   app.get("/api/debug/firebase", async (_req, res) => {
     try {
       // Import Firebase module and check configuration
-      const firebase = await import("./database/firebase");
+      const firebase = await import("./database/firebase.js");
       
       // Manually create config to see what's being used
       const config = {
