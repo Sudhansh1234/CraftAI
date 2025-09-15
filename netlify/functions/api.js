@@ -7,9 +7,7 @@ console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Environment:', process.env.NODE_ENV || 'production');
 
-// Firebase configuration
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, getDocs, query, where, orderBy, limit, addDoc, Timestamp } from 'firebase/firestore';
+// Firebase configuration - using dynamic imports to avoid ES module issues
 
 let firebaseApp = null;
 let firestore = null;
@@ -34,14 +32,14 @@ async function initializeFirebase() {
     // Set a very aggressive timeout for Firebase initialization
     const initPromise = new Promise(async (resolve, reject) => {
       try {
-        console.log('📦 Importing Firebase modules...');
-        const { initializeApp, getApps } = await import('firebase/app');
-        const { getFirestore } = await import('firebase/firestore');
+        console.log('📦 Importing Firebase modules dynamically...');
+        const firebaseApp = await import('firebase/app');
+        const firestoreModule = await import('firebase/firestore');
         console.log('✅ Firebase modules imported successfully');
 
         // Check if Firebase is already initialized
         console.log('🔍 Checking for existing Firebase apps...');
-        const apps = getApps();
+        const apps = firebaseApp.getApps();
         console.log('📊 Found', apps.length, 'existing Firebase apps');
 
         if (apps.length > 0) {
@@ -63,12 +61,12 @@ async function initializeFirebase() {
             apiKey: firebaseConfig.apiKey ? 'Set' : 'Not set'
           });
 
-          firebaseApp = initializeApp(firebaseConfig);
+          firebaseApp = firebaseApp.initializeApp(firebaseConfig);
           console.log('✅ Firebase app initialized successfully');
         }
 
         console.log('🗄️ Getting Firestore instance...');
-        firestore = getFirestore(firebaseApp);
+        firestore = firestoreModule.getFirestore(firebaseApp);
         console.log('✅ Firestore instance created');
 
         resolve({ firebaseApp, firestore });
@@ -239,20 +237,20 @@ app.get("/api/dashboard/:userId", async (req, res) => {
     const fetchPromise = new Promise(async (resolve, reject) => {
       try {
         console.log('📦 Importing Firestore functions...');
-        const { collection, getDocs, query, where, orderBy, limit } = await import('firebase/firestore');
+        const firestoreModule = await import('firebase/firestore');
         console.log('✅ Firestore functions imported');
 
         // Fetch insights
         console.log('🔍 Fetching insights for user:', userId);
-        const insightsRef = collection(firestore, 'insights');
-        const insightsQuery = query(
+        const insightsRef = firestoreModule.collection(firestore, 'insights');
+        const insightsQuery = firestoreModule.query(
           insightsRef,
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(10)
+          firestoreModule.where('userId', '==', userId),
+          firestoreModule.orderBy('createdAt', 'desc'),
+          firestoreModule.limit(10)
         );
         console.log('📊 Executing insights query...');
-        const insightsSnapshot = await getDocs(insightsQuery);
+        const insightsSnapshot = await firestoreModule.getDocs(insightsQuery);
         console.log('📊 Insights query completed, found', insightsSnapshot.docs.length, 'documents');
         const insights = insightsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -262,15 +260,15 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 
         // Fetch business metrics
         console.log('📈 Fetching business metrics for user:', userId);
-        const metricsRef = collection(firestore, 'businessMetrics');
-        const metricsQuery = query(
+        const metricsRef = firestoreModule.collection(firestore, 'businessMetrics');
+        const metricsQuery = firestoreModule.query(
           metricsRef,
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc'),
-          limit(5)
+          firestoreModule.where('userId', '==', userId),
+          firestoreModule.orderBy('createdAt', 'desc'),
+          firestoreModule.limit(5)
         );
         console.log('📊 Executing metrics query...');
-        const metricsSnapshot = await getDocs(metricsQuery);
+        const metricsSnapshot = await firestoreModule.getDocs(metricsQuery);
         console.log('📊 Metrics query completed, found', metricsSnapshot.docs.length, 'documents');
         const businessMetrics = metricsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -362,11 +360,21 @@ app.get("/api/dashboard/:userId", async (req, res) => {
 app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   console.log('➕ Add metric endpoint called');
   console.log('👤 User ID:', req.params.userId);
+  console.log('📦 Request body type:', typeof req.body);
   console.log('📦 Request body:', req.body);
 
   try {
     const userId = req.params.userId;
-    const { metricType, value, date, productName, price, quantity, materialCost, sellingPrice } = req.body;
+    
+    // Parse body if it's a Buffer
+    let parsedBody = req.body;
+    if (Buffer.isBuffer(req.body)) {
+      console.log('🔧 Parsing Buffer body...');
+      parsedBody = JSON.parse(req.body.toString());
+      console.log('✅ Parsed body:', parsedBody);
+    }
+    
+    const { metricType, value, date, productName, price, quantity, materialCost, sellingPrice } = parsedBody;
 
     if (!metricType || !value) {
       console.log('❌ Missing metricType or value');
@@ -380,6 +388,9 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       return res.status(500).json({ error: 'Firebase not initialized, cannot add metric' });
     }
 
+    console.log('📦 Importing Firestore functions for add-metric...');
+    const firestoreModule = await import('firebase/firestore');
+
     const metricData = {
       userId,
       metricType,
@@ -390,11 +401,11 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
       quantity,
       materialCost,
       sellingPrice,
-      createdAt: Timestamp.now()
+      createdAt: firestoreModule.Timestamp.now()
     };
 
     console.log('💾 Adding metric to Firestore:', metricData);
-    const docRef = await addDoc(collection(firestore, 'businessMetrics'), metricData);
+    const docRef = await firestoreModule.addDoc(firestoreModule.collection(firestore, 'businessMetrics'), metricData);
     console.log('✅ Metric added with ID:', docRef.id);
 
     res.status(201).json({ message: 'Metric added successfully', id: docRef.id, data: metricData });
@@ -424,9 +435,10 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
     }
 
     console.log('🔍 Fetching products for user:', userId);
-    const productsRef = collection(firestore, 'products');
-    const productsQuery = query(productsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
-    const productsSnapshot = await getDocs(productsQuery);
+    const firestoreModule = await import('firebase/firestore');
+    const productsRef = firestoreModule.collection(firestore, 'products');
+    const productsQuery = firestoreModule.query(productsRef, firestoreModule.where('userId', '==', userId), firestoreModule.orderBy('createdAt', 'desc'));
+    const productsSnapshot = await firestoreModule.getDocs(productsQuery);
     const products = productsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('✅ Products fetched:', products.length);
@@ -457,9 +469,10 @@ app.get("/api/business-flow/charts/:userId", async (req, res) => {
     }
 
     console.log('🔍 Fetching charts for user:', userId);
-    const chartsRef = collection(firestore, 'businessFlowCharts');
-    const chartsQuery = query(chartsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'));
-    const chartsSnapshot = await getDocs(chartsQuery);
+    const firestoreModule = await import('firebase/firestore');
+    const chartsRef = firestoreModule.collection(firestore, 'businessFlowCharts');
+    const chartsQuery = firestoreModule.query(chartsRef, firestoreModule.where('userId', '==', userId), firestoreModule.orderBy('createdAt', 'desc'));
+    const chartsSnapshot = await firestoreModule.getDocs(chartsQuery);
     const charts = chartsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     console.log('✅ Charts fetched:', charts.length);
@@ -492,14 +505,15 @@ app.get("/api/business-flow/:userId/latest", async (req, res) => {
     }
 
     console.log('🔍 Fetching latest business flow for user:', userId);
-    const flowsRef = collection(firestore, 'businessFlowCharts');
-    const latestQuery = query(
+    const firestoreModule = await import('firebase/firestore');
+    const flowsRef = firestoreModule.collection(firestore, 'businessFlowCharts');
+    const latestQuery = firestoreModule.query(
       flowsRef, 
-      where('userId', '==', userId), 
-      orderBy('createdAt', 'desc'),
-      limit(1)
+      firestoreModule.where('userId', '==', userId), 
+      firestoreModule.orderBy('createdAt', 'desc'),
+      firestoreModule.limit(1)
     );
-    const latestSnapshot = await getDocs(latestQuery);
+    const latestSnapshot = await firestoreModule.getDocs(latestQuery);
     
     if (latestSnapshot.empty) {
       console.log('📭 No business flows found for user');
