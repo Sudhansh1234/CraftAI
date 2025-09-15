@@ -6,9 +6,26 @@ import cors from 'cors';
 
 // Load environment variables
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+// Try .env.local first (dev), then .env.production (prod), then default
+try {
+  dotenv.config({ path: '.env.local' });
+} catch (error) {
+  try {
+    dotenv.config({ path: '.env.production' });
+  } catch (error2) {
+    // Use Vercel's built-in environment variables
+    console.log('Using Vercel environment variables');
+  }
+}
 
 const app = express();
+
+// Set timeout for all requests
+app.use((req, res, next) => {
+  req.setTimeout(25000); // 25 seconds timeout
+  res.setTimeout(25000);
+  next();
+});
 
 // Middleware
 app.use(cors());
@@ -18,6 +35,15 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Basic routes
 app.get("/api/ping", (req, res) => {
   res.json({ message: "Hello from Vercel API with server folder" });
+});
+
+// Simple health check
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Debug endpoint
