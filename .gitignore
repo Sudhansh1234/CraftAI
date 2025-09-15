@@ -34,3 +34,5 @@ googlecloudjson-fixed.json
 googlecloudjson-fixed.json
 *.local
 .env.local
+.env.local
+googlecloudjson-fixed.json
