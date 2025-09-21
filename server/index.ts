@@ -152,6 +152,7 @@ export function createServer() {
   app.post("/api/dashboard/create-user", dashboardRoutes.createUserDataEndpoint);
   app.post("/api/dashboard/:userId/add-metric", dashboardRoutes.extractUserId, dashboardRoutes.addBusinessMetric);
   app.get("/api/dashboard/:userId/products", dashboardRoutes.extractUserId, dashboardRoutes.getUserProducts);
+  app.put("/api/dashboard/:userId/products/:productId", dashboardRoutes.extractUserId, dashboardRoutes.updateProduct);
   app.get("/api/dashboard/:userId/all-metrics", dashboardRoutes.extractUserId, dashboardRoutes.getAllBusinessMetrics);
   app.get("/api/dashboard/market-trends", dashboardRoutes.getMarketTrends);
   app.patch("/api/dashboard/insights/:insightId/status", dashboardRoutes.updateInsightStatus);
@@ -163,6 +164,11 @@ export function createServer() {
   app.get("/api/dashboard/:userId/metrics", dashboardRoutes.extractUserId, dashboardRoutes.getBusinessMetrics);
   app.post("/api/dashboard/:userId/metrics", dashboardRoutes.extractUserId, dashboardRoutes.createBusinessMetric);
   app.get("/api/dashboard/:userId/recommendations", dashboardRoutes.extractUserId, dashboardRoutes.getRecommendations);
+  
+  // Cache management endpoints
+  app.get("/api/dashboard/cache/stats", dashboardRoutes.getCacheStats);
+  app.post("/api/dashboard/cache/clear", dashboardRoutes.clearCache);
+  app.post("/api/dashboard/cache/invalidate/:userId", dashboardRoutes.invalidateUserCache);
 
   return app;
 }

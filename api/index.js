@@ -417,6 +417,72 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
   }
 });
 
+// Update product endpoint
+app.put("/api/dashboard/:userId/products/:productId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const productId = req.params.productId;
+    const { product_name, material_cost, selling_price, quantity, added_date } = req.body;
+    
+    if (!userId || !productId) {
+      return res.status(400).json({ error: 'User ID and Product ID are required' });
+    }
+    
+    if (!product_name || material_cost === undefined || selling_price === undefined || quantity === undefined) {
+      return res.status(400).json({ 
+        error: 'Product name, material cost, selling price, and quantity are required' 
+      });
+    }
+    
+    const { firebaseApp, firestore } = await initializeFirebase();
+    
+    if (!firestore) {
+      return res.status(503).json({ error: 'Firebase not available' });
+    }
+    
+    // Update product in Firestore
+    const { doc, updateDoc, getDoc } = await import('firebase/firestore');
+    const productRef = doc(firestore, 'products', productId);
+    
+    // Check if product exists and belongs to user
+    const productSnap = await getDoc(productRef);
+    if (!productSnap.exists()) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    const productData = productSnap.data();
+    if (productData.userId !== userId) {
+      return res.status(403).json({ error: 'Unauthorized to update this product' });
+    }
+    
+    // Update the product
+    await updateDoc(productRef, {
+      product_name: product_name.trim(),
+      material_cost: parseFloat(material_cost),
+      selling_price: parseFloat(selling_price),
+      quantity: parseInt(quantity),
+      added_date: added_date || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+    
+    // Get updated product data
+    const updatedProductSnap = await getDoc(productRef);
+    const updatedProduct = {
+      id: updatedProductSnap.id,
+      ...updatedProductSnap.data()
+    };
+    
+    res.json({ 
+      success: true, 
+      message: 'Product updated successfully', 
+      data: updatedProduct 
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+});
+
 // Products endpoint with Firebase
 app.get("/api/dashboard/:userId/products", async (req, res) => {
   try {
@@ -453,7 +519,7 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
         const productsQuery = query(
           productsRef, 
           where('userId', '==', userId),
-          orderBy('createdAt', 'desc')
+          orderBy('added_date', 'desc')
         );
         const productsSnapshot = await getDocs(productsQuery);
         const products = productsSnapshot.docs.map(doc => ({
@@ -592,6 +658,7 @@ console.log('  - GET /api/dashboard/test');
 console.log('  - GET /api/dashboard/:userId');
 console.log('  - POST /api/dashboard/:userId/add-metric');
 console.log('  - GET /api/dashboard/:userId/products');
+console.log('  - PUT /api/dashboard/:userId/products/:productId');
 console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/social/platforms');
 console.log('✅ Ready to handle requests!');

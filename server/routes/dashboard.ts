@@ -1,10 +1,125 @@
 import { RequestHandler, Request, Response, NextFunction } from 'express';
 import { createUserData } from '../database/firebase-seed';
+import crypto from 'crypto';
 
 // Extend Request interface to include userId
 interface AuthenticatedRequest extends Request {
   userId?: string;
 }
+
+// Recommendation cache system
+interface CacheEntry {
+  data: any;
+  hash: string;
+  timestamp: number;
+  ttl: number; // Time to live in milliseconds
+}
+
+class RecommendationCache {
+  private cache = new Map<string, CacheEntry>();
+  private readonly DEFAULT_TTL = 15 * 60 * 1000; // 15 minutes
+  private readonly MAX_CACHE_SIZE = 100; // Maximum number of cached entries
+
+  // Generate a hash for business data to detect changes
+  private generateDataHash(products: any[], sales: any[], businessMetrics: any[]): string {
+    const dataString = JSON.stringify({
+      products: products.map(p => ({
+        id: p.id,
+        name: p.product_name || p.name,
+        cost: p.material_cost || p.materialCost,
+        price: p.selling_price || p.sellingPrice || p.price,
+        quantity: p.quantity,
+        updated: p.updated_at || p.updatedAt
+      })),
+      sales: sales.map(s => ({
+        id: s.id,
+        product: s.product_name,
+        quantity: s.quantity,
+        value: s.value || s.price_per_unit * s.quantity,
+        date: s.sale_date || s.date_recorded
+      })),
+      metrics: businessMetrics.map(m => ({
+        id: m.id,
+        type: m.metric_type,
+        value: m.value,
+        date: m.date_recorded || m.createdAt
+      }))
+    });
+    
+    return crypto.createHash('md5').update(dataString).digest('hex');
+  }
+
+  // Get cached recommendations
+  get(userId: string, products: any[], sales: any[], businessMetrics: any[]): any | null {
+    const key = `rec_${userId}`;
+    const entry = this.cache.get(key);
+    
+    if (!entry) {
+      return null;
+    }
+
+    // Check if cache has expired
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    // Check if data has changed
+    const currentHash = this.generateDataHash(products, sales, businessMetrics);
+    if (entry.hash !== currentHash) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    console.log(`📦 Cache hit for user ${userId}`);
+    return entry.data;
+  }
+
+  // Set cached recommendations
+  set(userId: string, products: any[], sales: any[], businessMetrics: any[], recommendations: any, ttl?: number): void {
+    const key = `rec_${userId}`;
+    const hash = this.generateDataHash(products, sales, businessMetrics);
+    
+    // Clean up old entries if cache is full
+    if (this.cache.size >= this.MAX_CACHE_SIZE) {
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
+    }
+
+    this.cache.set(key, {
+      data: recommendations,
+      hash,
+      timestamp: Date.now(),
+      ttl: ttl || this.DEFAULT_TTL
+    });
+
+    console.log(`💾 Cached recommendations for user ${userId} (TTL: ${ttl || this.DEFAULT_TTL}ms)`);
+  }
+
+  // Invalidate cache for a specific user
+  invalidate(userId: string): void {
+    const key = `rec_${userId}`;
+    this.cache.delete(key);
+    console.log(`🗑️ Invalidated cache for user ${userId}`);
+  }
+
+  // Clear all cache
+  clear(): void {
+    this.cache.clear();
+    console.log('🧹 Cleared all recommendation cache');
+  }
+
+  // Get cache stats
+  getStats(): { size: number; entries: string[] } {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys())
+    };
+  }
+}
+
+// Global cache instance
+const recommendationCache = new RecommendationCache();
 
 // Middleware to extract user ID from request
 export const extractUserId = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -40,15 +155,15 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
     // Get user ID from the request (set by middleware)
     const userId = req.userId || '00000000-0000-0000-0000-000000000001';
 
-    // Simple quota check - for demo purposes, simulate quota exceeded for certain users
-    const isQuotaExceeded = userId === 'quota-exceeded-user' || Math.random() < 0.1; // 10% chance for demo
-    
-    if (isQuotaExceeded) {
-      return res.status(429).json({
-        error: 'QUOTA_EXCEEDED',
-        message: 'AI recommendations quota exceeded. Please try again tomorrow.'
-      });
-    }
+    // Quota check disabled for testing - can be re-enabled for production
+    // const isQuotaExceeded = userId === 'quota-exceeded-user' || Math.random() < 0.1; // 10% chance for demo
+    // 
+    // if (isQuotaExceeded) {
+    //   return res.status(429).json({
+    //     error: 'QUOTA_EXCEEDED',
+    //     message: 'AI recommendations quota exceeded. Please try again tomorrow.'
+    //   });
+    // }
     
     // Check if Firebase is configured and accessible
     console.log('Firebase configured:', isFirebaseConfigured());
@@ -147,12 +262,45 @@ export const getDashboardData: RequestHandler = async (req: AuthenticatedRequest
     // Calculate weekly growth from metrics
     const weeklyGrowth = await FirebaseModels.businessMetrics.getWeeklyGrowth(userId);
     
-    // No automatic AI recommendations generation - only manual or after events
-    const recommendations = {
+    // Generate AI recommendations with caching
+    let recommendations = {
       immediate: [],
       shortTerm: [],
       longTerm: []
     };
+    
+    // Only generate recommendations if we have products or sales data from Firestore
+    if (products.length > 0 || sales.length > 0) {
+      try {
+        // Check cache first
+        const cachedRecommendations = recommendationCache.get(userId, products, sales, businessMetrics);
+        
+        if (cachedRecommendations) {
+          recommendations = cachedRecommendations;
+          console.log('Using cached recommendations for user:', userId);
+        } else {
+          console.log('Generating new recommendations from Firestore data:', {
+            products: products.length,
+            sales: sales.length
+          });
+          
+          // Generate recommendations using the actual Firestore products and sales data
+          recommendations = generateRecommendationsFromData(products, sales, businessMetrics);
+          
+          // Cache the recommendations
+          recommendationCache.set(userId, products, sales, businessMetrics, recommendations);
+          
+          console.log('Generated and cached recommendations:', {
+            immediate: recommendations.immediate.length,
+            shortTerm: recommendations.shortTerm.length,
+            longTerm: recommendations.longTerm.length
+          });
+        }
+      } catch (error) {
+        console.error('Error generating recommendations:', error);
+        // Keep empty recommendations if generation fails
+      }
+    }
     
     // Generate market trends based on metrics
     const marketTrends = generateMarketTrendsFromMetrics(businessMetrics);
@@ -385,6 +533,10 @@ export const createBusinessMetric: RequestHandler = async (req, res) => {
     };
     
     const metric = await FirebaseModels.businessMetrics.create(metricData);
+    
+    // Invalidate recommendation cache for this user since data has changed
+    recommendationCache.invalidate(userId);
+    
     res.status(201).json(metric);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create business metric' });
@@ -737,6 +889,75 @@ export const getUserProducts: RequestHandler = async (req: AuthenticatedRequest,
   }
 };
 
+// Update product endpoint
+export const updateProduct: RequestHandler = async (req: AuthenticatedRequest, res) => {
+  try {
+    const { userId, productId } = req.params;
+    const { product_name, material_cost, selling_price, quantity, added_date } = req.body;
+    
+    if (!userId || !productId) {
+      return res.status(400).json({ error: 'User ID and Product ID are required' });
+    }
+    
+    if (!product_name || material_cost === undefined || selling_price === undefined || quantity === undefined) {
+      return res.status(400).json({ 
+        error: 'Product name, material cost, selling price, and quantity are required' 
+      });
+    }
+    
+    // Lazy import Firebase modules
+    const { FirebaseModels, isFirebaseConfigured, healthCheck } = await import('../database/firebase');
+    
+    if (!isFirebaseConfigured() || !(await healthCheck())) {
+      return res.status(503).json({ error: 'Firebase not available' });
+    }
+    
+    // Format date properly for storage
+    const formatDateForStorage = (dateString: string) => {
+      if (!dateString) return new Date().toISOString();
+      
+      try {
+        // If it's already in ISO format, use it
+        if (dateString.includes('T') || dateString.includes('Z')) {
+          return new Date(dateString).toISOString();
+        }
+        // If it's in yyyy-MM-dd format, convert to ISO
+        return new Date(dateString + 'T00:00:00.000Z').toISOString();
+      } catch (error) {
+        console.warn('Invalid date format:', dateString);
+        return new Date().toISOString();
+      }
+    };
+
+    // Update product in Firestore
+    const updatedProduct = await FirebaseModels.products.update(productId, {
+      product_name: product_name.trim(),
+      material_cost: parseFloat(material_cost),
+      selling_price: parseFloat(selling_price),
+      quantity: parseInt(quantity),
+      added_date: formatDateForStorage(added_date),
+      updated_at: new Date().toISOString()
+    });
+    
+    if (!updatedProduct) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    
+    // Invalidate recommendation cache for this user since product data has changed
+    recommendationCache.invalidate(userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Product updated successfully', 
+      data: updatedProduct 
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ error: 'Failed to update product' });
+  }
+};
+
+
 // Get all business metrics for a user
 export const getAllBusinessMetrics: RequestHandler = async (req: AuthenticatedRequest, res) => {
   try {
@@ -903,6 +1124,53 @@ async function generateInsightsFromMetrics(userId: string, metrics: any[]): Prom
   
   return insights;
 }
+
+// Cache management endpoints
+export const getCacheStats: RequestHandler = async (req, res) => {
+  try {
+    const stats = recommendationCache.getStats();
+    res.json({
+      success: true,
+      cache: {
+        size: stats.size,
+        entries: stats.entries,
+        maxSize: 100,
+        defaultTTL: 15 * 60 * 1000 // 15 minutes
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get cache stats' });
+  }
+};
+
+export const clearCache: RequestHandler = async (req, res) => {
+  try {
+    recommendationCache.clear();
+    res.json({
+      success: true,
+      message: 'All recommendation cache cleared'
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to clear cache' });
+  }
+};
+
+export const invalidateUserCache: RequestHandler = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    recommendationCache.invalidate(userId);
+    res.json({
+      success: true,
+      message: `Cache invalidated for user ${userId}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to invalidate user cache' });
+  }
+};
 
 // Helper function to generate AI-powered recommendations using Vertex AI
 async function generateAIRecommendations(products: any[], sales: any[], businessMetrics: any[]): Promise<any> {
@@ -1112,6 +1380,21 @@ function generateRecommendationsFromData(products: any[], sales: any[], business
     });
   }
 
+  // FUTURE PRODUCT RECOMMENDATIONS (What to make next)
+  const futureRecommendations = generateFutureProductRecommendations(products, sales, productProfits);
+  if (futureRecommendations.length > 0) {
+    recommendations.longTerm.push({
+      id: 'future-products',
+      title: 'Create: Future Products',
+      description: `Based on your current success, consider making: ${futureRecommendations.join(', ')}`,
+      priority: 'medium',
+      category: 'product_development',
+      timeframe: 'long_term',
+      actionable: true,
+      suggestedProducts: futureRecommendations
+    });
+  }
+
   if (products.length > 10) {
     recommendations.longTerm.push({
       id: 'diversify-portfolio',
@@ -1153,6 +1436,90 @@ function generateRecommendationsFromData(products: any[], sales: any[], business
   }
 
   return recommendations;
+}
+
+// Generate future product recommendations based on current data
+function generateFutureProductRecommendations(products: any[], sales: any[], productProfits: any[]): string[] {
+  const recommendations = [];
+  
+  // Analyze current product categories and success patterns
+  const productCategories = products.map(p => p.product_name.toLowerCase());
+  const salesByProduct = sales.reduce((acc, sale) => {
+    const productName = sale.product_name.toLowerCase();
+    acc[productName] = (acc[productName] || 0) + (sale.quantity || 0);
+    return acc;
+  }, {});
+
+  // Find best-selling products
+  const bestSellingProducts = Object.entries(salesByProduct)
+    .sort(([,a], [,b]) => (b as number) - (a as number))
+    .slice(0, 2)
+    .map(([product]) => product);
+
+  // Find highest margin products
+  const topMarginProducts = productProfits
+    .filter(p => p.profitMargin > 30)
+    .sort((a, b) => b.profitMargin - a.profitMargin)
+    .slice(0, 2)
+    .map(p => p.product_name.toLowerCase());
+
+  // Generate recommendations based on patterns
+  if (bestSellingProducts.length > 0) {
+    const topProduct = bestSellingProducts[0];
+    
+    // Suggest variations of best-selling products
+    if (topProduct.includes('bowl')) {
+      recommendations.push('Ceramic Plate Set', 'Matching Ceramic Mugs');
+    } else if (topProduct.includes('scarf')) {
+      recommendations.push('Matching Gloves', 'Cozy Blanket');
+    } else if (topProduct.includes('table')) {
+      recommendations.push('Matching Chairs', 'Coffee Table');
+    } else if (topProduct.includes('ceramic')) {
+      recommendations.push('Ceramic Vase', 'Decorative Ceramic Tiles');
+    } else if (topProduct.includes('wooden')) {
+      recommendations.push('Wooden Cutting Board', 'Wooden Utensils');
+    } else {
+      recommendations.push(`${topProduct.charAt(0).toUpperCase() + topProduct.slice(1)} Gift Set`);
+    }
+  }
+
+  // Suggest complementary products based on high-margin items
+  if (topMarginProducts.length > 0) {
+    const highMarginProduct = topMarginProducts[0];
+    
+    if (highMarginProduct.includes('bowl') || highMarginProduct.includes('ceramic')) {
+      recommendations.push('Hand-painted Ceramic Art', 'Custom Ceramic Jewelry');
+    } else if (highMarginProduct.includes('scarf') || highMarginProduct.includes('textile')) {
+      recommendations.push('Handwoven Wall Hanging', 'Textile Art Piece');
+    } else if (highMarginProduct.includes('wooden') || highMarginProduct.includes('table')) {
+      recommendations.push('Hand-carved Wooden Art', 'Custom Wooden Sign');
+    }
+  }
+
+  // Suggest seasonal products based on current time
+  const currentMonth = new Date().getMonth();
+  if (currentMonth >= 10 || currentMonth <= 1) { // Winter months
+    recommendations.push('Holiday Ornaments', 'Winter Accessories', 'Gift Sets');
+  } else if (currentMonth >= 2 && currentMonth <= 4) { // Spring
+    recommendations.push('Garden Decor', 'Spring Accessories', 'Fresh Flower Arrangements');
+  } else if (currentMonth >= 5 && currentMonth <= 7) { // Summer
+    recommendations.push('Beach Accessories', 'Summer Decor', 'Outdoor Items');
+  } else { // Fall
+    recommendations.push('Autumn Decor', 'Cozy Home Items', 'Harvest-themed Products');
+  }
+
+  // Suggest based on price range analysis
+  const avgPrice = products.reduce((sum, p) => sum + (p.selling_price || 0), 0) / products.length;
+  if (avgPrice < 100) {
+    recommendations.push('Premium Collection (₹200-500 range)');
+  } else if (avgPrice > 200) {
+    recommendations.push('Budget-friendly Options (₹50-150 range)');
+  }
+
+  // Remove duplicates and limit to 3 recommendations
+  const uniqueRecommendations = [...new Set(recommendations)].slice(0, 3);
+  
+  return uniqueRecommendations;
 }
 
 // Helper function to generate market trends from metrics

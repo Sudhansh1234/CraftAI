@@ -1,7 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Package, AlertTriangle, CheckCircle, TrendingDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Package, AlertTriangle, CheckCircle, TrendingDown, Edit } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface InventoryItem {
   id: string;
@@ -19,6 +21,8 @@ interface InventoryTableProps {
 }
 
 export function InventoryTable({ data }: InventoryTableProps) {
+  const navigate = useNavigate();
+  
   const getStockStatus = (quantity: number) => {
     if (quantity === 0) return { status: 'out', color: 'destructive', icon: AlertTriangle };
     if (quantity <= 5) return { status: 'low', color: 'destructive', icon: AlertTriangle };
@@ -56,6 +60,7 @@ export function InventoryTable({ data }: InventoryTableProps) {
                   <th className="text-left py-3 px-2 font-medium text-muted-foreground">Total Value</th>
                   <th className="text-left py-3 px-2 font-medium text-muted-foreground">Margin</th>
                   <th className="text-left py-3 px-2 font-medium text-muted-foreground">Last Updated</th>
+                  <th className="text-left py-3 px-2 font-medium text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -102,6 +107,17 @@ export function InventoryTable({ data }: InventoryTableProps) {
                       </td>
                       <td className="py-3 px-2 text-muted-foreground text-sm">
                         {formatDate(item.last_updated)}
+                      </td>
+                      <td className="py-3 px-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/edit-product/${item.id}`)}
+                          className="h-8 px-3"
+                        >
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
                       </td>
                     </tr>
                   );

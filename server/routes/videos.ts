@@ -13,10 +13,41 @@ let vertexAI: VertexAI | null = null;
 const initializeVertexAI = async () => {
   if (!vertexAI) {
     const { VertexAI } = await import("@google-cloud/vertexai");
+    
+    // Create credentials object from environment variables
+    const credentials = {
+      type: 'service_account',
+      project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || 'googleapis.com'
+    };
+    
+    // Create temporary credentials file
+    const fs = await import('fs');
+    const tempCredentialsPath = './temp-credentials.json';
+    fs.writeFileSync(tempCredentialsPath, JSON.stringify(credentials, null, 2));
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = tempCredentialsPath;
+    
     vertexAI = new VertexAI({
       project: process.env.GOOGLE_CLOUD_PROJECT_ID,
-      location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1",
+      location: process.env.GOOGLE_CLOUD_LOCATION || "us-central1"
     });
+    
+    // Clean up temporary file
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(tempCredentialsPath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }, 1000);
   }
   return vertexAI;
 };

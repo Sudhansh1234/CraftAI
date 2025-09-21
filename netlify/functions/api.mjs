@@ -4,6 +4,236 @@ import express from 'express';
 import serverless from 'serverless-http';
 import cors from 'cors';
 
+// AI Recommendations Cache System
+class RecommendationCache {
+  constructor() {
+    this.cache = new Map();
+    this.ttl = 15 * 60 * 1000; // 15 minutes
+  }
+
+  generateKey(userId, dataHash) {
+    return `${userId}_${dataHash}`;
+  }
+
+  get(userId, dataHash) {
+    const key = this.generateKey(userId, dataHash);
+    const cached = this.cache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < this.ttl) {
+      console.log('📦 Cache hit for user', userId);
+      return cached.data;
+    }
+    
+    if (cached) {
+      this.cache.delete(key);
+    }
+    
+    return null;
+  }
+
+  set(userId, dataHash, data) {
+    const key = this.generateKey(userId, dataHash);
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+    console.log('💾 Cached recommendations for user', userId, `(TTL: ${this.ttl}ms)`);
+  }
+
+  invalidate(userId) {
+    const keysToDelete = [];
+    for (const [key, value] of this.cache.entries()) {
+      if (key.startsWith(`${userId}_`)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach(key => this.cache.delete(key));
+    console.log('🗑️ Invalidated cache for user', userId);
+  }
+
+  clear() {
+    this.cache.clear();
+    console.log('🧹 Cleared all recommendation cache');
+  }
+
+  getStats() {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys())
+    };
+  }
+}
+
+const recommendationCache = new RecommendationCache();
+
+// AI Recommendations Generation Functions
+function generateFutureProductRecommendations(products, sales, productProfits) {
+  const recommendations = [];
+  
+  // Analyze current product categories and success patterns
+  const productCategories = products.map(p => p.product_name.toLowerCase());
+  const salesByProduct = sales.reduce((acc, sale) => {
+    const productName = sale.product_name.toLowerCase();
+    acc[productName] = (acc[productName] || 0) + (sale.quantity || 0);
+    return acc;
+  }, {});
+
+  // Find best-selling products
+  const bestSellingProducts = Object.entries(salesByProduct)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 2)
+    .map(([product]) => product);
+
+  // Find highest margin products
+  const topMarginProducts = productProfits
+    .filter(p => p.profitMargin > 30)
+    .sort((a, b) => b.profitMargin - a.profitMargin)
+    .slice(0, 2)
+    .map(p => p.product_name.toLowerCase());
+
+  // Generate recommendations based on patterns
+  if (bestSellingProducts.length > 0) {
+    const topProduct = bestSellingProducts[0];
+    
+    // Suggest variations of best-selling products
+    if (topProduct.includes('bowl')) {
+      recommendations.push('Ceramic Plate Set', 'Matching Ceramic Mugs');
+    } else if (topProduct.includes('scarf')) {
+      recommendations.push('Matching Gloves', 'Cozy Blanket');
+    } else if (topProduct.includes('table')) {
+      recommendations.push('Matching Chairs', 'Coffee Table');
+    } else if (topProduct.includes('ceramic')) {
+      recommendations.push('Ceramic Vase', 'Decorative Ceramic Tiles');
+    } else if (topProduct.includes('wooden')) {
+      recommendations.push('Wooden Cutting Board', 'Wooden Utensils');
+    } else {
+      recommendations.push(`${topProduct.charAt(0).toUpperCase() + topProduct.slice(1)} Gift Set`);
+    }
+  }
+
+  // Suggest complementary products based on high-margin items
+  if (topMarginProducts.length > 0) {
+    const highMarginProduct = topMarginProducts[0];
+    
+    if (highMarginProduct.includes('bowl') || highMarginProduct.includes('ceramic')) {
+      recommendations.push('Hand-painted Ceramic Art', 'Custom Ceramic Jewelry');
+    } else if (highMarginProduct.includes('scarf') || highMarginProduct.includes('textile')) {
+      recommendations.push('Handwoven Wall Hanging', 'Textile Art Piece');
+    } else if (highMarginProduct.includes('wooden') || highMarginProduct.includes('table')) {
+      recommendations.push('Hand-carved Wooden Art', 'Custom Wooden Sign');
+    }
+  }
+
+  // Suggest seasonal products based on current time
+  const currentMonth = new Date().getMonth();
+  if (currentMonth >= 10 || currentMonth <= 1) { // Winter months
+    recommendations.push('Holiday Ornaments', 'Winter Accessories', 'Gift Sets');
+  } else if (currentMonth >= 2 && currentMonth <= 4) { // Spring
+    recommendations.push('Garden Decor', 'Spring Accessories', 'Fresh Flower Arrangements');
+  } else if (currentMonth >= 5 && currentMonth <= 7) { // Summer
+    recommendations.push('Beach Accessories', 'Summer Decor', 'Outdoor Items');
+  } else { // Fall
+    recommendations.push('Autumn Decor', 'Cozy Home Items', 'Harvest-themed Products');
+  }
+
+  // Suggest based on price range analysis
+  const avgPrice = products.reduce((sum, p) => sum + (p.selling_price || 0), 0) / products.length;
+  if (avgPrice < 100) {
+    recommendations.push('Premium Collection (₹200-500 range)');
+  } else if (avgPrice > 200) {
+    recommendations.push('Budget-friendly Options (₹50-150 range)');
+  }
+
+  // Remove duplicates and limit to 3 recommendations
+  const uniqueRecommendations = [...new Set(recommendations)].slice(0, 3);
+  
+  return uniqueRecommendations;
+}
+
+function generateAIRecommendations(products, sales, productProfits) {
+  const recommendations = {
+    immediate: [],
+    shortTerm: [],
+    longTerm: []
+  };
+
+  // Calculate key metrics
+  const totalProducts = products.length;
+  const totalSales = sales.length;
+  const totalRevenue = sales.reduce((sum, sale) => sum + ((sale.price_per_unit || 0) * (sale.quantity || 0)), 0);
+  const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+  const lowStockProducts = products.filter(p => (p.quantity || 0) < 5);
+  const highMarginProducts = productProfits.filter(p => p.profitMargin > 50);
+
+  // IMMEDIATE RECOMMENDATIONS (Next 1-7 days)
+  if (lowStockProducts.length > 0) {
+    recommendations.immediate.push({
+      id: 'restock-low',
+      title: 'Alert: Low Stock Warning',
+      description: `${lowStockProducts.length} products are running low on stock. Consider restocking soon.`,
+      priority: 'medium',
+      category: 'inventory',
+      timeframe: 'immediate',
+      actionable: true
+    });
+  }
+
+  // SHORT-TERM RECOMMENDATIONS (Next 1-4 weeks)
+  if (averageOrderValue < 500) {
+    recommendations.shortTerm.push({
+      id: 'increase-aov',
+      title: 'Increase: Average Order Value',
+      description: `Current AOV is ₹${Math.round(averageOrderValue)}. Consider bundling products or upselling strategies.`,
+      priority: 'medium',
+      category: 'sales',
+      timeframe: 'short_term',
+      actionable: true
+    });
+  }
+
+  // LONG-TERM RECOMMENDATIONS (Next 1-3 months)
+  if (highMarginProducts.length > 0) {
+    recommendations.longTerm.push({
+      id: 'scale-profitable',
+      title: 'Scale: Profitable Products',
+      description: `${highMarginProducts.length} products have excellent profit margins (>50%). Consider expanding production.`,
+      priority: 'low',
+      category: 'growth',
+      timeframe: 'long_term',
+      actionable: true
+    });
+  }
+
+  // FUTURE PRODUCT RECOMMENDATIONS (What to make next)
+  const futureRecommendations = generateFutureProductRecommendations(products, sales, productProfits);
+  if (futureRecommendations.length > 0) {
+    recommendations.longTerm.push({
+      id: 'future-products',
+      title: 'Create: Future Products',
+      description: `Based on your current success, consider making: ${futureRecommendations.join(', ')}`,
+      priority: 'medium',
+      category: 'product_development',
+      timeframe: 'long_term',
+      actionable: true,
+      suggestedProducts: futureRecommendations
+    });
+  }
+
+  if (products.length > 10) {
+    recommendations.longTerm.push({
+      id: 'improve-turnover',
+      title: 'Improve: Inventory Turnover',
+      description: 'Your inventory turnover is low. Consider better demand forecasting and inventory management.',
+      priority: 'medium',
+      category: 'operations',
+      timeframe: 'long_term',
+      actionable: true
+    });
+  }
+
+  return recommendations;
+}
+
 console.log('🚀 Netlify API starting up...');
 console.log('📅 Timestamp:', new Date().toISOString());
 console.log('🌍 Environment:', process.env.NODE_ENV || 'production');
@@ -240,11 +470,48 @@ app.get("/api/dashboard/:userId", async (req, res) => {
         }));
         console.log('✅ Sales processed:', sales.length);
 
+        // Calculate product profits for AI recommendations
+        const productProfits = products.map(product => {
+          const materialCost = product.material_cost || 0;
+          const sellingPrice = product.selling_price || 0;
+          const profitMargin = sellingPrice > 0 ? ((sellingPrice - materialCost) / sellingPrice) * 100 : 0;
+          return {
+            ...product,
+            profitMargin: Math.round(profitMargin * 10) / 10
+          };
+        });
+
         // Combine as business metrics for backward compatibility
         const businessMetrics = [
           ...products.map(p => ({ ...p, metric_type: 'products' })),
           ...sales.map(s => ({ ...s, metric_type: 'sales' }))
         ];
+
+        // Generate data hash for caching
+        const dataHash = JSON.stringify({
+          products: products.length,
+          sales: sales.length,
+          lastUpdate: Math.max(
+            ...products.map(p => new Date(p.updated_at?.toDate?.() || p.created_at?.toDate?.() || p.created_at || 0).getTime()),
+            ...sales.map(s => new Date(s.updated_at?.toDate?.() || s.created_at?.toDate?.() || s.created_at || 0).getTime())
+          )
+        });
+
+        // Check cache for AI recommendations
+        let aiRecommendations = recommendationCache.get(userId, dataHash);
+        
+        if (!aiRecommendations) {
+          console.log('Generating new recommendations from Firestore data:', { products: products.length, sales: sales.length });
+          aiRecommendations = generateAIRecommendations(products, sales, productProfits);
+          recommendationCache.set(userId, dataHash, aiRecommendations);
+          console.log('Generated and cached recommendations:', {
+            immediate: aiRecommendations.immediate.length,
+            shortTerm: aiRecommendations.shortTerm.length,
+            longTerm: aiRecommendations.longTerm.length
+          });
+        } else {
+          console.log('Using cached recommendations for user:', userId);
+        }
 
         // Try fallback to business_metrics collection if no data found
         if (businessMetrics.length === 0) {
@@ -316,12 +583,8 @@ app.get("/api/dashboard/:userId", async (req, res) => {
             weeklyGrowth: Math.round(weeklyGrowth * 10) / 10,
             topCategories: []
           },
-          // Empty recommendations - no AI recommendations implemented  
-          recommendations: {
-            immediate: [],
-            shortTerm: [],
-            longTerm: []
-          },
+          // AI recommendations with caching
+          recommendations: aiRecommendations,
           marketTrends: {
             trendingProducts: [],
             seasonalOpportunities: [],
@@ -557,6 +820,9 @@ app.post("/api/dashboard/:userId/add-metric", async (req, res) => {
 
     console.log('✅ Data added to', collectionName, 'with ID:', docRef.id);
 
+    // Invalidate cache when new data is added
+    recommendationCache.invalidate(userId);
+
     res.status(201).json({ 
       success: true,
       message: `${metricData.metricType} added successfully`,
@@ -630,6 +896,145 @@ app.get("/api/dashboard/:userId/products", async (req, res) => {
       details: error.message 
     });
   }
+});
+
+// Edit product endpoint with Firebase Client SDK
+app.put("/api/dashboard/:userId/products/:productId", async (req, res) => {
+  console.log('✏️ Edit product endpoint called');
+  console.log('👤 User ID:', req.params.userId);
+  console.log('🛍️ Product ID:', req.params.productId);
+
+  try {
+    const userId = req.params.userId;
+    const productId = req.params.productId;
+    let productData = req.body;
+
+    // Handle case where body is received as Buffer
+    if (Buffer.isBuffer(productData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        productData = JSON.parse(productData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
+
+    console.log('📝 Edit product request data:', {
+      userId,
+      productId,
+      productName: productData.product_name,
+      sellingPrice: productData.selling_price,
+      materialCost: productData.material_cost,
+      quantity: productData.quantity
+    });
+
+    // Validate required fields
+    if (!productData.product_name || !productData.selling_price || !productData.material_cost) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Product name, selling price, and material cost are required' 
+      });
+    }
+
+    console.log('🔥 Calling initializeFirebase for edit product...');
+    const { firestore } = await initializeFirebase();
+    if (!firestore) {
+      console.log('⚠️ Firestore not available, cannot edit product');
+      return res.status(500).json({ error: 'Firebase not initialized, cannot edit product' });
+    }
+
+    console.log('📦 Using Firebase Client SDK for edit product...');
+    const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
+
+    // Helper function to format date for storage
+    function formatDateForStorage(dateString) {
+      if (!dateString) return new Date().toISOString();
+      
+      // If it's already in ISO format, return as is
+      if (dateString.includes('T') && dateString.includes('Z')) {
+        return dateString;
+      }
+      
+      // If it's in YYYY-MM-DD format, convert to ISO
+      if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return new Date(dateString + 'T00:00:00.000Z').toISOString();
+      }
+      
+      // Otherwise, try to parse as date
+      return new Date(dateString).toISOString();
+    }
+
+    const updatedProductData = {
+      product_name: productData.product_name,
+      material_cost: parseFloat(productData.material_cost),
+      selling_price: parseFloat(productData.selling_price),
+      quantity: parseInt(productData.quantity) || 0,
+      added_date: formatDateForStorage(productData.added_date),
+      updated_at: serverTimestamp()
+    };
+
+    console.log('💾 Updating product in Firestore:', updatedProductData);
+    const productRef = doc(firestore, 'products', productId);
+    await updateDoc(productRef, updatedProductData);
+
+    console.log('✅ Product updated successfully:', productId);
+
+    // Invalidate cache when product is updated
+    recommendationCache.invalidate(userId);
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Product updated successfully',
+      id: productId,
+      userId: userId,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Edit product API error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to edit product', 
+      details: error.message 
+    });
+  }
+});
+
+// Cache management endpoints
+app.get("/api/dashboard/cache/stats", (req, res) => {
+  console.log('📊 Cache stats endpoint called');
+  const stats = recommendationCache.getStats();
+  res.json({
+    success: true,
+    stats: stats,
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post("/api/dashboard/cache/clear", (req, res) => {
+  console.log('🧹 Clear cache endpoint called');
+  recommendationCache.clear();
+  res.json({
+    success: true,
+    message: 'All recommendation cache cleared',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post("/api/dashboard/cache/invalidate/:userId", (req, res) => {
+  console.log('🗑️ Invalidate user cache endpoint called');
+  const userId = req.params.userId;
+  recommendationCache.invalidate(userId);
+  res.json({
+    success: true,
+    message: `Cache invalidated for user ${userId}`,
+    userId: userId,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Business flow charts endpoint with Firebase Admin SDK
@@ -1479,6 +1884,10 @@ console.log('  - GET /api/dashboard/test');
 console.log('  - GET /api/dashboard/:userId');
 console.log('  - POST /api/dashboard/:userId/add-metric');
 console.log('  - GET /api/dashboard/:userId/products');
+console.log('  - PUT /api/dashboard/:userId/products/:productId');
+console.log('  - GET /api/dashboard/cache/stats');
+console.log('  - POST /api/dashboard/cache/clear');
+console.log('  - POST /api/dashboard/cache/invalidate/:userId');
 console.log('  - GET /api/business-flow/charts/:userId');
 console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - POST /api/business-flow/:userId/save');

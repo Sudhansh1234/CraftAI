@@ -30,6 +30,7 @@ import Marketing from "./pages/Marketing";
 import Voice from "./pages/Voice";
 import Dashboard from "./pages/Dashboard";
 import AddData from "./pages/AddData";
+import EditProduct from "./pages/EditProduct";
 import Auth from "./pages/Auth";
 import SocialPlayground from "./pages/SocialPlayground";
 
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="/voice" element={<ProtectedRoute feature="Voice Commerce"><Voice /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute feature="Dashboard"><Dashboard /></ProtectedRoute>} />
           <Route path="/add-data" element={<ProtectedRoute feature="Add Data"><AddData /></ProtectedRoute>} />
+          <Route path="/edit-product/:productId" element={<ProtectedRoute feature="Edit Product"><EditProduct /></ProtectedRoute>} />
           <Route path="/social" element={<ProtectedRoute feature="Social Playground"><SocialPlayground /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

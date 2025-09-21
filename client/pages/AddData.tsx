@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, ArrowLeft, Package, ShoppingCart } from 'lucide-react';
+import { Plus, Loader2, ArrowLeft, Package, ShoppingCart, Edit } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -708,7 +708,7 @@ export default function AddData() {
                           <div key={product.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
                             <div className="flex items-start justify-between mb-2">
                               <h4 className="font-medium text-gray-900 dark:text-gray-100 text-lg">{product.product_name}</h4>
-                              <div className="text-right">
+                              <div className="flex items-center gap-2">
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                   profitMargin >= 50 ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                                   profitMargin >= 25 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
@@ -717,6 +717,15 @@ export default function AddData() {
                                 }`}>
                                   {profitMargin.toFixed(1)}% margin
                                 </span>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => navigate(`/edit-product/${product.id}`)}
+                                  className="h-8 px-3"
+                                >
+                                  <Edit className="w-3 h-3 mr-1" />
+                                  Edit
+                                </Button>
                               </div>
                             </div>
                             
