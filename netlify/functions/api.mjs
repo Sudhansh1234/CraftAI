@@ -1271,6 +1271,479 @@ app.post("/api/business-flow/:userId/save", async (req, res) => {
   }
 });
 
+// Location-based search endpoints
+app.post("/api/location/search", async (req, res) => {
+  console.log('📍 Location search endpoint called');
+  
+  try {
+    const { query, location, radius = 50000, type } = req.body;
+
+    if (!query || !location || !location.lat || !location.lng) {
+      return res.status(400).json({
+        error: 'Missing required fields: query, location (lat, lng)',
+        fallback: {
+          content: "I need your location to find nearby businesses. Please enable location access or tell me your city name."
+        }
+      });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.error('Google Maps API key not found');
+      return res.status(500).json({
+        error: 'Google Maps API not configured',
+        fallback: {
+          content: "Location services are temporarily unavailable. Please try again later or contact support."
+        }
+      });
+    }
+
+    // Search for places using Google Places API
+    const placesResults = await searchPlaces(query, location, radius, apiKey);
+    
+    // Get detailed information for each place
+    const detailedResults = await getPlaceDetails(placesResults, apiKey, location);
+    
+    // Use Gemini to generate intelligent response
+    const aiResponse = await generateLocationAIResponse(query, location, detailedResults);
+
+    res.json({
+      content: aiResponse,
+      locationData: {
+        userLocation: location,
+        searchQuery: query,
+        resultsCount: detailedResults.length,
+        searchRadius: radius
+      },
+      rawResults: detailedResults
+    });
+
+  } catch (error) {
+    console.error('Location search error:', error);
+    
+    // Fallback response
+    const fallbackContent = `I'm having trouble searching for "${req.body.query}" in your area. Here are some general suggestions:
+
+🔍 How to find local suppliers:
+- Check local business directories
+- Visit wholesale markets in your city
+- Join artisan groups on social media
+- Contact local trade associations
+- Ask other artisans for recommendations
+
+📍 Popular wholesale areas in India:
+- Delhi: Chandni Chowk, Karol Bagh
+- Mumbai: Crawford Market, Zaveri Bazaar
+- Bangalore: Commercial Street, Chickpet
+- Chennai: T. Nagar, Parry's Corner
+
+Would you like me to help you with specific search strategies for your craft?`;
+
+    res.json({
+      content: fallbackContent,
+      error: 'Location search temporarily unavailable'
+    });
+  }
+});
+
+app.post("/api/location/insights", async (req, res) => {
+  console.log('📍 Location insights endpoint called');
+  
+  try {
+    const { location, coordinates, craftType, nodeTitle, nodeType } = req.body;
+
+    if (!location) {
+      return res.status(400).json({ error: 'Location is required' });
+    }
+
+    // Import Vertex AI for insights generation
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    const { GoogleAuth } = await import('google-auth-library');
+    
+    // Create credentials object from environment variables
+    const credentials = {
+      type: 'service_account',
+      project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || 'googleapis.com'
+    };
+    
+    const auth = new GoogleAuth({
+      credentials: credentials,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+    
+    const vertexAI = new VertexAI({
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      location: 'us-central1',
+      googleAuthOptions: {
+        authClient: await auth.getClient()
+      }
+    });
+
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: {
+        maxOutputTokens: 1000,
+        temperature: 0.7,
+        topP: 0.9,
+      },
+    });
+
+    const prompt = `You are ArtisAI, an AI assistant for Indian artisans. Generate location-specific business insights and suggest relevant ArtisAI services.
+
+Context:
+- Location: ${location}
+- Coordinates: ${coordinates ? `${coordinates.lat}, ${coordinates.lng}` : 'Not available'}
+- Craft Type: ${craftType || 'handicrafts'}
+- Node Title: ${nodeTitle}
+- Node Type: ${nodeType}
+
+Generate location-specific insights as bullet points:
+- Local market opportunities in ${location}
+- Regional suppliers and wholesalers
+- Local festivals and events for sales
+- Cultural context and traditions
+- Regional pricing strategies
+- Local government schemes and support
+- Location-specific marketing channels
+- Seasonal opportunities
+- Local competition insights
+- Transportation and logistics tips
+- Nearby business districts and commercial areas
+- Local customer preferences and buying patterns
+
+IMPORTANT: Include suggestions for ArtisAI services where relevant:
+- "Use our AI Image Generator to create product photos for local market listings"
+- "Try our AI Marketing Assistant to create social media content for local festivals"
+- "Use our Business Plan Builder to create a detailed strategy for this location"
+- "Generate product descriptions with our AI to attract local customers"
+- "Create promotional videos with our AI Video Generator for local events"
+- "Use our Pricing Calculator to set competitive prices for this market"
+
+CRITICAL FORMATTING RULES:
+- Use ONLY dash (-) for bullet points, NO asterisks (*) anywhere
+- NO markdown formatting like **bold** or *italic*
+- NO special characters except dashes for bullets
+- Each line should start with a dash and space: "- Your content here"
+- Do not use any other formatting symbols
+
+Format as bullet points (-) with 6-8 specific, actionable insights for ${location}, including 2-3 ArtisAI service suggestions where relevant.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    let text;
+    if (typeof response.text === 'function') {
+      text = response.text().trim();
+    } else if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      text = response.candidates[0].content.parts[0].text.trim();
+    } else {
+      throw new Error('Unexpected response structure from Gemini');
+    }
+
+    // Clean up any remaining markdown formatting
+    text = text
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove **bold**
+      .replace(/\*([^*]+)\*/g, '$1') // Remove *italic*
+      .replace(/^\s*\*\s+/gm, '- ') // Replace * with - at start of lines
+      .replace(/^\s*•\s+/gm, '- ') // Replace • with - at start of lines
+      .replace(/\n\s*\n/g, '\n') // Remove extra blank lines
+      .trim();
+
+    res.json({ insights: text });
+  } catch (error) {
+    console.error('Error generating location insights:', error);
+    res.status(500).json({ error: 'Failed to generate location insights' });
+  }
+});
+
+app.get("/api/location/reverse-geocode", async (req, res) => {
+  console.log('📍 Reverse geocoding endpoint called');
+  
+  try {
+    const { lat, lng } = req.query;
+
+    if (!lat || !lng) {
+      return res.status(400).json({ error: 'Latitude and longitude are required' });
+    }
+
+    const { Client } = await import('@googlemaps/google-maps-services-js');
+    const client = new Client({});
+
+    const response = await client.reverseGeocode({
+      params: {
+        latlng: { lat: parseFloat(lat), lng: parseFloat(lng) },
+        key: process.env.GOOGLE_MAPS_API_KEY,
+      },
+    });
+
+    const results = response.data.results;
+    if (results.length === 0) {
+      return res.json({ city: 'Unknown Location' });
+    }
+
+    // Find the most specific location (city level)
+    let city = 'Unknown Location';
+    for (const result of results) {
+      const addressComponents = result.address_components;
+      for (const component of addressComponents) {
+        if (component.types.includes('locality') || component.types.includes('administrative_area_level_2')) {
+          city = component.long_name;
+          break;
+        }
+      }
+      if (city !== 'Unknown Location') break;
+    }
+
+    res.json({ city });
+  } catch (error) {
+    console.error('Error in reverse geocoding:', error);
+    res.status(500).json({ error: 'Failed to get location information' });
+  }
+});
+
+// Helper functions for location search
+async function searchPlaces(query, location, radius, apiKey) {
+  try {
+    const { Client } = await import('@googlemaps/google-maps-services-js');
+    const mapsClient = new Client({});
+    
+    // Determine search type based on query
+    const searchType = determineSearchType(query);
+    
+    const response = await mapsClient.placesNearby({
+      params: {
+        location: { lat: location.lat, lng: location.lng },
+        radius: radius,
+        keyword: query,
+        type: searchType,
+        key: apiKey,
+      },
+    });
+
+    return response.data.results || [];
+  } catch (error) {
+    console.error('Places API error:', error);
+    throw error;
+  }
+}
+
+async function getPlaceDetails(places, apiKey, userLocation) {
+  const { Client } = await import('@googlemaps/google-maps-services-js');
+  const mapsClient = new Client({});
+  const detailedResults = [];
+  
+  for (const place of places.slice(0, 10)) { // Limit to 10 results
+    try {
+      const detailsResponse = await mapsClient.placeDetails({
+        params: {
+          place_id: place.place_id,
+          fields: ['name', 'formatted_address', 'rating', 'formatted_phone_number', 'website', 'types', 'opening_hours', 'photos'],
+          key: apiKey,
+        },
+      });
+
+      const details = detailsResponse.data.result;
+      
+      // Calculate distance using user's actual location
+      const distance = calculateDistance(
+        { lat: place.geometry.location.lat, lng: place.geometry.location.lng },
+        userLocation
+      );
+
+      detailedResults.push({
+        name: details.name || 'Unknown',
+        address: details.formatted_address || 'Address not available',
+        distance: distance,
+        rating: details.rating,
+        phone: details.formatted_phone_number,
+        website: details.website,
+        types: details.types || [],
+        place_id: place.place_id,
+        opening_hours: details.opening_hours,
+        photos: details.photos?.map((photo) => photo.photo_reference) || []
+      });
+    } catch (error) {
+      console.error(`Error getting details for place ${place.place_id}:`, error);
+      // Continue with other places
+    }
+  }
+
+  return detailedResults.sort((a, b) => a.distance - b.distance);
+}
+
+function determineSearchType(query) {
+  const queryLower = query.toLowerCase();
+  
+  if (queryLower.includes('market') || queryLower.includes('fair') || queryLower.includes('bazaar')) {
+    return 'shopping_mall';
+  } else if (queryLower.includes('supplier') || queryLower.includes('wholesaler')) {
+    return 'store';
+  } else if (queryLower.includes('exhibition') || queryLower.includes('center')) {
+    return 'establishment';
+  } else {
+    return 'establishment';
+  }
+}
+
+function calculateDistance(point1, point2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (point2.lat - point1.lat) * Math.PI / 180;
+  const dLng = (point2.lng - point1.lng) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(point1.lat * Math.PI / 180) * Math.cos(point2.lat * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+async function generateLocationAIResponse(query, location, results) {
+  try {
+    // Import Vertex AI
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    const { GoogleAuth } = await import('google-auth-library');
+    
+    // Create credentials object from environment variables
+    const credentials = {
+      type: 'service_account',
+      project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      auth_uri: process.env.GOOGLE_CLOUD_AUTH_URI || 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: process.env.GOOGLE_CLOUD_TOKEN_URI || 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: process.env.GOOGLE_CLOUD_AUTH_PROVIDER_X509_CERT_URL || 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: process.env.GOOGLE_CLOUD_CLIENT_X509_CERT_URL,
+      universe_domain: process.env.GOOGLE_CLOUD_UNIVERSE_DOMAIN || 'googleapis.com'
+    };
+    
+    const auth = new GoogleAuth({
+      credentials: credentials,
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+    });
+    
+    const vertexAI = new VertexAI({
+      project: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      location: 'us-central1',
+      googleAuthOptions: {
+        authClient: await auth.getClient()
+      }
+    });
+
+    const model = vertexAI.getGenerativeModel({
+      model: 'gemini-2.0-flash-exp',
+      generationConfig: {
+        maxOutputTokens: 1000,
+        temperature: 0.7,
+        topP: 0.9,
+      },
+    });
+
+    // Prepare context for Gemini
+    const context = {
+      query,
+      city: location.city,
+      resultsCount: results.length,
+      places: results.map(place => ({
+        name: place.name,
+        address: place.address,
+        distance: place.distance,
+        rating: place.rating,
+        phone: place.phone,
+        types: place.types
+      }))
+    };
+
+    const prompt = `You are ArtisAI, an AI-powered marketplace assistant for Indian artisans. 
+
+The user searched for: "${query}" in ${location.city}
+
+Found ${results.length} places:
+${JSON.stringify(context.places, null, 2)}
+
+Generate a helpful, conversational response that:
+1. Acknowledges the search and location
+2. Lists the top 5 most relevant places with key details
+3. Provides specific tips based on the query type (markets vs suppliers)
+4. Suggests next steps for the artisan
+5. Uses an encouraging, supportive tone
+6. Keeps response under 300 words
+7. Uses bullet points for easy reading
+
+Remember: You're helping artisans grow their business, so be practical and actionable.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return text;
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    
+    // Fallback to basic formatting
+    return formatBasicLocationResponse(query, location, results);
+  }
+}
+
+function formatBasicLocationResponse(query, location, results) {
+  if (results.length === 0) {
+    return `I couldn't find any ${query} in ${location.city}. Here are some alternative suggestions:
+
+🔍 Try these search strategies:
+- Expand your search radius
+- Use different keywords (e.g., "suppliers" instead of "wholesalers")
+- Check online directories and marketplaces
+- Join local artisan groups for recommendations
+
+Would you like me to help you with a different search or provide general guidance?`;
+  }
+
+  let response = `📍 Found ${results.length} ${query} near ${location.city}:\n\n`;
+
+  results.slice(0, 5).forEach((result, index) => {
+    response += `${index + 1}. ${result.name} (${result.distance.toFixed(1)} km away)\n`;
+    response += `📍 ${result.address}\n`;
+    if (result.rating) {
+      response += `⭐ ${result.rating}/5 rating\n`;
+    }
+    if (result.phone) {
+      response += `📞 ${result.phone}\n`;
+    }
+    response += `🏷️ ${result.types.slice(0, 3).join(', ')}\n\n`;
+  });
+
+  // Add specific tips based on query type
+  const queryLower = query.toLowerCase();
+  if (queryLower.includes('market') || queryLower.includes('fair') || queryLower.includes('selling')) {
+    response += `💡 Tips for selling at these markets:
+- Contact organizers to check availability and booth fees
+- Ask about foot traffic and target audience
+- Inquire about setup requirements and timing
+- Check payment processing options (cash, card, UPI)
+
+Would you like me to help you prepare a vendor application or pricing strategy?`;
+  } else {
+    response += `💡 Tips for contacting suppliers:
+- Call during business hours (10 AM - 6 PM)
+- Ask about minimum order quantities
+- Inquire about bulk pricing and delivery
+- Check payment terms and credit options
+
+Would you like me to help you prepare questions to ask these suppliers?`;
+  }
+
+  return response;
+}
+
 // Questionnaire generate-flow endpoint
 app.post("/api/questionnaire/generate-flow", async (req, res) => {
   console.log('🤖 Questionnaire generate-flow endpoint called');
@@ -1893,6 +2366,9 @@ console.log('  - GET /api/business-flow/:userId/latest');
 console.log('  - POST /api/business-flow/:userId/save');
 console.log('  - GET /api/business-flow/:userId/all');
 console.log('  - POST /api/questionnaire/generate-flow');
+console.log('  - POST /api/location/search');
+console.log('  - POST /api/location/insights');
+console.log('  - GET /api/location/reverse-geocode');
 console.log('  - GET /api/social/platforms');
 console.log('  - POST /api/social/generate-post');
 console.log('✅ Ready to handle requests on Netlify!');
