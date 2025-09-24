@@ -1428,28 +1428,36 @@ app.post("/api/location/insights", async (req, res) => {
       },
     });
 
-    const prompt = `You are ArtisAI, an AI assistant for Indian artisans. Generate location-specific business insights and suggest relevant ArtisAI services.
+    const prompt = `You are ArtisAI, an AI assistant for Indian artisans. Generate location-specific business insights tailored to the specific business node/action.
 
 Context:
 - Location: ${location}
 - Coordinates: ${coordinates ? `${coordinates.lat}, ${coordinates.lng}` : 'Not available'}
 - Craft Type: ${craftType || 'handicrafts'}
-- Node Title: ${nodeTitle}
+- Node Title: "${nodeTitle}"
 - Node Type: ${nodeType}
 
-Generate location-specific insights as bullet points:
-- Local market opportunities in ${location}
-- Regional suppliers and wholesalers
-- Local festivals and events for sales
-- Cultural context and traditions
-- Regional pricing strategies
-- Local government schemes and support
-- Location-specific marketing channels
-- Seasonal opportunities
-- Local competition insights
-- Transportation and logistics tips
-- Nearby business districts and commercial areas
-- Local customer preferences and buying patterns
+CRITICAL: Generate insights SPECIFICALLY related to "${nodeTitle}" in ${location}. Do NOT give generic location advice.
+
+Examples of node-specific insights:
+- If node is "Define Product Line Expansion" → focus on expansion opportunities, new product categories, market gaps in ${location}
+- If node is "Find Suppliers" → focus on local suppliers, wholesalers, material sources in ${location}
+- If node is "Set Up Online Presence" → focus on local digital platforms, social media strategies, e-commerce opportunities in ${location}
+- If node is "Pricing Strategy" → focus on local pricing trends, competitor analysis, customer willingness to pay in ${location}
+- If node is "Marketing & Sales" → focus on local marketing channels, festivals, events, customer acquisition in ${location}
+- If node is "Financial Planning" → focus on local costs, funding sources, government schemes, business loans in ${location}
+- If node is "Quality Control" → focus on local quality standards, certification requirements, testing facilities in ${location}
+- If node is "Inventory Management" → focus on local storage solutions, logistics, seasonal demand patterns in ${location}
+
+Generate 6-8 SPECIFIC insights about "${nodeTitle}" in ${location}:
+- Local opportunities related to this specific business action
+- Location-specific challenges and how to overcome them
+- Regional resources, suppliers, or partners relevant to this action
+- Local market conditions affecting this business decision
+- Cultural or seasonal factors impacting this action in ${location}
+- Government schemes or support programs relevant to this action
+- Local competition or market gaps related to this action
+- Practical implementation tips specific to ${location}
 
 IMPORTANT: Include suggestions for ArtisAI services where relevant:
 - "Use our AI Image Generator to create product photos for local market listings"
@@ -1466,7 +1474,7 @@ CRITICAL FORMATTING RULES:
 - Each line should start with a dash and space: "- Your content here"
 - Do not use any other formatting symbols
 
-Format as bullet points (-) with 6-8 specific, actionable insights for ${location}, including 2-3 ArtisAI service suggestions where relevant.`;
+Format as bullet points (-) with 6-8 specific, actionable insights about "${nodeTitle}" in ${location}, including 2-3 ArtisAI service suggestions where relevant.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
