@@ -1006,25 +1006,42 @@ const BusinessFlow: React.FC = () => {
       const locationToUse = currentLocation?.city || node.data.meta?.location || 'India';
       const coordinates = currentLocation ? { lat: currentLocation.lat, lng: currentLocation.lng } : null;
 
+      console.log('🔍 Location insights request data:', {
+        locationToUse,
+        coordinates,
+        craftType: location.state?.answers?.craft || 'handicrafts',
+        nodeTitle: node.data.title,
+        nodeType: node.data.type,
+        currentLocation,
+        nodeMeta: node.data.meta
+      });
+
+      const requestBody = {
+        location: locationToUse,
+        coordinates: coordinates,
+        craftType: location.state?.answers?.craft || 'handicrafts',
+        nodeTitle: node.data.title,
+        nodeType: node.data.type
+      };
+
+      console.log('📤 Sending request body:', requestBody);
+
       const response = await fetch('/api/location/insights', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          location: locationToUse,
-          coordinates: coordinates,
-          craftType: location.state?.answers?.craft || 'handicrafts',
-          nodeTitle: node.data.title,
-          nodeType: node.data.type
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get location insights');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Location insights API error:', errorData);
+        throw new Error(`Failed to get location insights: ${errorData.error || 'Unknown error'}`);
       }
 
       const data = await response.json();
+      console.log('✅ Location insights response:', data);
       
       // Update the node with location insights
       setNodes(prevNodes => 

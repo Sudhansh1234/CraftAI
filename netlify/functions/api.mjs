@@ -1348,12 +1348,43 @@ Would you like me to help you with specific search strategies for your craft?`;
 
 app.post("/api/location/insights", async (req, res) => {
   console.log('📍 Location insights endpoint called');
+  console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
   
   try {
-    const { location, coordinates, craftType, nodeTitle, nodeType } = req.body;
+    let requestData = req.body;
+    
+    // Handle Buffer body (common in Netlify functions)
+    if (Buffer.isBuffer(requestData)) {
+      console.log('🔧 Body received as Buffer, parsing JSON...');
+      try {
+        requestData = JSON.parse(requestData.toString('utf8'));
+        console.log('✅ Successfully parsed JSON from Buffer');
+      } catch (parseError) {
+        console.error('❌ Failed to parse JSON from Buffer:', parseError);
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid JSON in request body'
+        });
+      }
+    }
+    
+    const { location, coordinates, craftType, nodeTitle, nodeType } = requestData;
+    
+    console.log('📋 Extracted data:', {
+      location,
+      coordinates,
+      craftType,
+      nodeTitle,
+      nodeType
+    });
 
     if (!location) {
-      return res.status(400).json({ error: 'Location is required' });
+      console.log('❌ Location is missing from request');
+      return res.status(400).json({ 
+        success: false,
+        error: 'Location is required',
+        receivedData: requestData
+      });
     }
 
     // Import Vertex AI for insights generation
@@ -1458,10 +1489,17 @@ Format as bullet points (-) with 6-8 specific, actionable insights for ${locatio
       .replace(/\n\s*\n/g, '\n') // Remove extra blank lines
       .trim();
 
-    res.json({ insights: text });
+    res.json({ 
+      success: true,
+      insights: text 
+    });
   } catch (error) {
-    console.error('Error generating location insights:', error);
-    res.status(500).json({ error: 'Failed to generate location insights' });
+    console.error('❌ Error generating location insights:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to generate location insights',
+      details: error.message 
+    });
   }
 });
 
